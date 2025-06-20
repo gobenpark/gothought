@@ -13,5 +13,5 @@ type Provider interface {
 }
 
 type StreamingCapable interface {
-	GenerateStreaming(ctx context.Context, messages []Message, callback func(Message) error) error
+	GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, messages []Message, callback func(Message) error) error
 }

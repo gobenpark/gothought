@@ -126,7 +126,7 @@ func (l *LanguageModel) Q(ctx context.Context) (*Message, error) {
 // processes the response through the provided callback function.
 func (l *LanguageModel) QStream(ctx context.Context, callback func(Message) error) error {
 	if p, ok := any(l.provider).(StreamingCapable); ok {
-		return p.GenerateStreaming(ctx, l.messages, callback)
+		return p.GenerateStreaming(ctx, l.tools, l.messages, callback)
 	}
 
 	return errors.New("streaming not supported for this provider")

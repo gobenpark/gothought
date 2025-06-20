@@ -22,7 +22,7 @@ func GenerateJSONSchema(v interface{}) JSONSchema {
 	}
 
 	schema := JSONSchema{
-		Type:       "Object",
+		Type:       "object",
 		Properties: make(map[string]JSONSchema),
 	}
 
