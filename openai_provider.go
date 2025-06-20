@@ -84,6 +84,8 @@ type OpenAIProvider struct {
 	temperature float32
 }
 
+var _ Provider = (*OpenAIProvider)(nil)
+
 func NewOpenAIProvider(model string, apikey string, temperature float32) *OpenAIProvider {
 	return &OpenAIProvider{apiKey: apikey, temperature: temperature, model: model}
 }
