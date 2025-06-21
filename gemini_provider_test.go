@@ -3,6 +3,7 @@ package gothought
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,12 @@ import (
 )
 
 func TestGeminiProvider_Generate(t *testing.T) {
-	p := NewGeminiProvider("", "gemini-2.5-flash")
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		t.Skip("GEMINI_API_KEY not set, skipping integration test")
+	}
+
+	p := NewGeminiProvider(apiKey, "gemini-2.5-flash")
 	msgs, content, err := p.Generate(context.TODO(), nil, []Message{
 		{
 			Role:       "user",
