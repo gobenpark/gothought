@@ -43,8 +43,11 @@ While solutions like langchain-go offer comprehensive features, they often requi
 - Functional options for flexible configuration
 - Agent loop for tool-using LLM applications
 - Streaming support for real-time responses
-- Multiple LLM providers (OpenAI, with more coming soon)
+- Multiple LLM providers (OpenAI, Claude, Gemini, Ollama, Cohere)
 - Tool interface for extending LLM capabilities
+- Go template-based prompt templates with `{{.Variable}}` syntax
+- Comprehensive error handling and retry mechanisms
+- Type-safe structured output parsing
 
 ## Installation
 
@@ -140,8 +143,70 @@ err := model.
 
 ## Supported LLM Providers
 
-- OpenAI (ChatGPT, GPT-4, GPT-4o)
-- More providers coming soon!
+gothought supports multiple LLM providers through a unified interface:
+
+### OpenAI
+```go
+provider := gothought.NewOpenAIProvider("gpt-4o", os.Getenv("OPENAI_API_KEY"), 0.7)
+```
+
+### Claude (Anthropic)
+```go
+provider := gothought.NewClaudeProvider("claude-3-5-sonnet-20241022", os.Getenv("ANTHROPIC_API_KEY"))
+```
+
+### Google Gemini
+```go
+provider := gothought.NewGeminiProvider("gemini-1.5-pro", os.Getenv("GEMINI_API_KEY"))
+```
+
+### Ollama (Local LLMs)
+```go
+// Default localhost:11434
+provider := gothought.NewOllamaProvider("llama3.1", 0.7)
+
+// Custom Ollama server
+provider := gothought.NewOllamaProvider("mistral", 0.7, "http://my-ollama-server:11434")
+```
+
+### Cohere
+```go
+provider := gothought.NewCohereProvider("command", os.Getenv("COHERE_API_KEY"))
+```
+
+All providers support the same fluent API and streaming capabilities!
+
+### Using Prompt Templates
+
+gothought supports Go's native `text/template` syntax for dynamic prompt generation:
+
+```go
+// Create a template
+template, err := gothought.NewPromptTemplate("greeting", "Hello {{.Name}}, you are a {{.Role}}!")
+if err != nil {
+    panic(err)
+}
+
+// Use with LanguageModel
+data := map[string]interface{}{
+    "Name": "Alice",
+    "Role": "developer",
+}
+
+response, err := model.
+    SystemPromptTemplate(template, data).
+    HumanPrompt("What's your favorite programming language?").
+    Q(context.Background())
+
+// Or use convenience method for one-time templates
+response, err := model.
+    SystemPromptf("You are a {{.Role}} assistant specializing in {{.Domain}}", map[string]interface{}{
+        "Role": "helpful",
+        "Domain": "Go programming",
+    }).
+    HumanPrompt("Explain goroutines").
+    Q(context.Background())
+```
 
 ## Supported Tools
 
@@ -197,18 +262,25 @@ func (t *MyCustomTool) Call(ctx context.Context, params string) (string, error) 
 
 ## Roadmap
 
-Future plans for gothought include:
+### Completed ✅
+- ✅ **Multiple LLM Providers**: OpenAI, Claude, Gemini, Ollama, Cohere
+- ✅ **Prompt Templates**: Go template syntax with `{{.Variable}}` placeholders
+- ✅ **Error Handling**: Comprehensive error types and retry mechanisms
+- ✅ **Streaming Support**: Real-time response streaming for all providers
+- ✅ **Tool System**: Extensible tool interface with function calling
 
+### In Progress 🚧
+- 🚧 **Token Management**: Token counting and cost tracking system
+
+### Future Plans 📋
 - Context management for multi-turn conversations
-- Additional LLM providers (Claude, Gemini, Cohere, etc.)
 - More built-in tools for common tasks
 - Middleware support for request/response processing
-- Function calling for non-tool providers
-- Caching mechanisms
-- Prompt templates
-- Token counting and management
-- Rate limiting and retry strategies
-- Tool validation and error handling improvements
+- Caching mechanisms for improved performance
+- Enhanced validation and error handling
+- Performance optimizations
+- Memory management for long conversations
+- Plugin system for custom extensions
 
 ## Contributing
 
