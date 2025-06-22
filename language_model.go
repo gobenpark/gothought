@@ -2,7 +2,6 @@ package gothought
 
 import (
 	"context"
-	"errors"
 
 	"github.com/gobenpark/gothought/tool"
 )
@@ -90,13 +89,20 @@ func (l *LanguageModel) HumanPrompt(prompt string) *LanguageModel {
 // It manages tool calls through multiple iterations if necessary,
 // up to the configured maximum number of iterations.
 func (l *LanguageModel) Q(ctx context.Context) (*Message, error) {
+	if ctx == nil {
+		return nil, NewValidationError("context", "context cannot be nil")
+	}
+
+	if err := ValidateMessages(l.messages); err != nil {
+		return nil, err
+	}
 
 	messages := l.messages
 
 	for i := 0; i < l.maxIterations; i++ {
 		response, finishReason, err := l.provider.Generate(ctx, l.tools, messages)
 		if err != nil {
-			return nil, err
+			return nil, NewProviderError("failed to generate response", err).WithContext("iteration", i)
 		}
 
 		switch finishReason {
@@ -106,9 +112,14 @@ func (l *LanguageModel) Q(ctx context.Context) (*Message, error) {
 			messages = append(messages, *response)
 
 			for _, tl := range response.ToolCalls {
-				tres, err := l.tools[tl.Function.Name].Call(ctx, tl.Function.Arguments)
+				tool, exists := l.tools[tl.Function.Name]
+				if !exists {
+					return nil, NewToolError(tl.Function.Name, "tool not found", nil)
+				}
+
+				tres, err := tool.Call(ctx, tl.Function.Arguments)
 				if err != nil {
-					return nil, err
+					return nil, NewToolError(tl.Function.Name, "tool execution failed", err)
 				}
 				messages = append(messages, Message{
 					Role:       "tool",
@@ -118,25 +129,56 @@ func (l *LanguageModel) Q(ctx context.Context) (*Message, error) {
 			}
 		}
 	}
-	return nil, errors.New("max iterations reached")
+	return nil, NewMaxIterationsError(l.maxIterations)
 }
 
 // QStream executes a streaming query to the language model.
 // It checks if the provider supports streaming capabilities and
 // processes the response through the provided callback function.
 func (l *LanguageModel) QStream(ctx context.Context, callback func(Message) error) error {
-	if p, ok := any(l.provider).(StreamingCapable); ok {
-		return p.GenerateStreaming(ctx, l.tools, l.messages, callback)
+	if ctx == nil {
+		return NewValidationError("context", "context cannot be nil")
 	}
 
-	return errors.New("streaming not supported for this provider")
+	if callback == nil {
+		return NewValidationError("callback", "callback function cannot be nil")
+	}
+
+	if err := ValidateMessages(l.messages); err != nil {
+		return err
+	}
+
+	if p, ok := any(l.provider).(StreamingCapable); ok {
+		if err := p.GenerateStreaming(ctx, l.tools, l.messages, callback); err != nil {
+			return NewProviderError("streaming generation failed", err)
+		}
+		return nil
+	}
+
+	return NewProviderError("streaming not supported for this provider", nil)
 }
 
-// It takes a context and an interface object that defines the structure
+// QWith takes a context and an interface object that defines the structure
 // of the expected output. The function appends a schema prompt to the last message,
 // processes the response from the provider, and parses the result into the provided object.
 // This is particularly useful for getting structured, type-safe responses from the language model.
 func (o *LanguageModel) QWith(ctx context.Context, oj interface{}) error {
+	if ctx == nil {
+		return NewValidationError("context", "context cannot be nil")
+	}
+
+	if oj == nil {
+		return NewValidationError("object", "output object cannot be nil")
+	}
+
+	if err := ValidateMessages(o.messages); err != nil {
+		return err
+	}
+
+	if len(o.messages) == 0 {
+		return NewValidationError("messages", "no messages available for structured output")
+	}
+
 	msgLen := len(o.messages)
 	msg := o.messages[msgLen-1]
 
@@ -145,11 +187,11 @@ func (o *LanguageModel) QWith(ctx context.Context, oj interface{}) error {
 
 	res, _, err := o.provider.Generate(ctx, o.tools, o.messages)
 	if err != nil {
-		return err
+		return NewProviderError("failed to generate structured response", err)
 	}
 
 	if err := ParsePrompt(oj, res.Message); err != nil {
-		return err
+		return NewParsingError("failed to parse structured output", err)
 	}
 	return nil
 }
