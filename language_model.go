@@ -58,6 +58,39 @@ func (l *LanguageModel) SystemPrompt(prompt string) *LanguageModel {
 	return l
 }
 
+// SystemPromptTemplate adds a system message using a template with variable substitution.
+// The template uses Go's text/template syntax with {{.Variable}} placeholders.
+//
+// Example:
+//
+//	template, _ := NewPromptTemplate("system", "You are a {{.Role}} assistant. Your expertise is in {{.Domain}}.")
+//	model.SystemPromptTemplate(template, map[string]string{"Role": "helpful", "Domain": "programming"})
+func (l *LanguageModel) SystemPromptTemplate(template *PromptTemplate, data interface{}) *LanguageModel {
+	prompt, err := template.Execute(data)
+	if err != nil {
+		l.messages = append(l.messages, Message{
+			Role:    "system",
+			Message: "[TEMPLATE_ERROR]: " + err.Error(),
+		})
+		return l
+	}
+	return l.SystemPrompt(prompt)
+}
+
+// SystemPromptf adds a system message using a template string with variable substitution.
+// This is a convenience method for one-time template usage without creating a PromptTemplate object.
+func (l *LanguageModel) SystemPromptf(templateStr string, data interface{}) *LanguageModel {
+	template, err := NewPromptTemplate("system_inline", templateStr)
+	if err != nil {
+		l.messages = append(l.messages, Message{
+			Role:    "system",
+			Message: "[TEMPLATE_ERROR]: " + err.Error(),
+		})
+		return l
+	}
+	return l.SystemPromptTemplate(template, data)
+}
+
 // AIPrompt adds an AI-generated message to the conversation.
 // It appends a new message with the "AI" role to the client's message list.
 func (l *LanguageModel) AIPrompt(prompt string) *LanguageModel {
@@ -83,6 +116,48 @@ func (l *LanguageModel) HumanPrompt(prompt string) *LanguageModel {
 		Message: prompt,
 	})
 	return l
+}
+
+// HumanPromptTemplate adds a user message using a template with variable substitution.
+// The template uses Go's text/template syntax with {{.Variable}} placeholders.
+//
+// Example:
+//
+//	template, _ := NewPromptTemplate("greeting", "Hello {{.Name}}, you are a {{.Role}}")
+//	model.HumanPromptTemplate(template, User{Name: "Alice", Role: "developer"})
+func (l *LanguageModel) HumanPromptTemplate(template *PromptTemplate, data interface{}) *LanguageModel {
+	prompt, err := template.Execute(data)
+	if err != nil {
+		// For fluent API, we store the error and continue
+		// The error will be caught during validation in Q() method
+		l.messages = append(l.messages, Message{
+			Role:    "user",
+			Message: "[TEMPLATE_ERROR]: " + err.Error(),
+		})
+		return l
+	}
+	return l.HumanPrompt(prompt)
+}
+
+// HumanPromptf adds a user message using a template string with variable substitution.
+// This is a convenience method for one-time template usage without creating a PromptTemplate object.
+//
+// Example:
+//
+//	model.HumanPromptf("Hello {{.Name}}, you are {{.Age}} years old", map[string]interface{}{
+//	    "Name": "Bob",
+//	    "Age": 30,
+//	})
+func (l *LanguageModel) HumanPromptf(templateStr string, data interface{}) *LanguageModel {
+	template, err := NewPromptTemplate("inline", templateStr)
+	if err != nil {
+		l.messages = append(l.messages, Message{
+			Role:    "user",
+			Message: "[TEMPLATE_ERROR]: " + err.Error(),
+		})
+		return l
+	}
+	return l.HumanPromptTemplate(template, data)
 }
 
 // Q executes a query to the language model and returns the response.
