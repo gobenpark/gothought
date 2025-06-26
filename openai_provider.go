@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gobenpark/gothought/tool"
 	"github.com/samber/lo"
@@ -88,14 +89,20 @@ type OpenAIProvider struct {
 
 var _ Provider = (*OpenAIProvider)(nil)
 
-func NewOpenAIProvider(model string, apikey string, temperature float32) *OpenAIProvider {
-	return &OpenAIProvider{
-		apiKey:        apikey,
-		temperature:   temperature,
+func NewOpenAIProvider(model string, options ...ProviderOption) *OpenAIProvider {
+	provider := &OpenAIProvider{
 		model:         model,
+		apiKey:        os.Getenv("OPENAI_API_KEY"),
+		temperature:   0.7,
 		retryConfig:   DefaultRetryConfig(),
 		timeoutConfig: DefaultTimeoutConfig(),
 	}
+
+	for _, option := range options {
+		option(provider)
+	}
+
+	return provider
 }
 
 func (o *OpenAIProvider) WithRetryConfig(config RetryConfig) *OpenAIProvider {

@@ -15,7 +15,7 @@ func TestClaudeProvider_Integration(t *testing.T) {
 		t.Skip("ANTHROPIC_API_KEY not set, skipping integration test")
 	}
 
-	provider := NewClaudeProvider("claude-3-haiku-20240307", apiKey, 0.7, 1024)
+	provider := NewClaudeProvider("claude-3-haiku-20240307", WithAPIKey(apiKey), WithTemperature(0.7), WithMaxTokens(1024))
 
 	t.Run("Simple Text Generation", func(t *testing.T) {
 		messages := []Message{
@@ -59,7 +59,7 @@ func TestClaudeProvider_MessageConversion(t *testing.T) {
 	if apiKey == "" {
 		t.Skip("ANTHROPIC_API_KEY not set, skipping integration test")
 	}
-	provider := NewClaudeProvider("claude-3-haiku-20240307", apiKey, 0.7, 1024)
+	provider := NewClaudeProvider("claude-3-haiku-20240307", WithAPIKey(apiKey), WithTemperature(0.7), WithMaxTokens(1024))
 
 	t.Run("Convert Simple Messages", func(t *testing.T) {
 		messages := []Message{
@@ -124,7 +124,7 @@ func TestClaudeProvider_Streaming(t *testing.T) {
 		t.Skip("ANTHROPIC_API_KEY not set, skipping streaming test")
 	}
 
-	provider := NewClaudeProvider("claude-3-haiku-20240307", apiKey, 0.7, 1024)
+	provider := NewClaudeProvider("claude-3-haiku-20240307", WithAPIKey(apiKey), WithTemperature(0.7), WithMaxTokens(1024))
 
 	t.Run("Streaming Response", func(t *testing.T) {
 		messages := []Message{

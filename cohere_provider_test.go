@@ -16,7 +16,7 @@ func TestCohereProvider_Integration(t *testing.T) {
 		t.Skip("COHERE_API_KEY not set, skipping integration test")
 	}
 
-	provider := NewCohereProvider("command", apiKey)
+	provider := NewCohereProvider("command", WithAPIKey(apiKey))
 
 	messages := []Message{
 		{
@@ -38,7 +38,7 @@ func TestCohereProvider_Integration(t *testing.T) {
 }
 
 func TestCohereProvider_MessageConversion(t *testing.T) {
-	provider := NewCohereProvider("command", "test-key")
+	provider := NewCohereProvider("command", WithAPIKey("test-key"))
 
 	tests := []struct {
 		name               string
@@ -107,7 +107,7 @@ func TestCohereProvider_Streaming(t *testing.T) {
 		t.Skip("COHERE_API_KEY not set, skipping streaming test")
 	}
 
-	provider := NewCohereProvider("command", apiKey)
+	provider := NewCohereProvider("command", WithAPIKey(apiKey))
 
 	messages := []Message{
 		{
@@ -140,7 +140,7 @@ func TestCohereProvider_Streaming(t *testing.T) {
 
 func TestCohereProvider_Validation(t *testing.T) {
 	t.Run("empty API key", func(t *testing.T) {
-		provider := NewCohereProvider("command", "")
+		provider := NewCohereProvider("command")
 		_, _, err := provider.Generate(context.Background(), nil, []Message{
 			{Role: "user", Message: "test"},
 		})
@@ -149,7 +149,7 @@ func TestCohereProvider_Validation(t *testing.T) {
 	})
 
 	t.Run("nil callback for streaming", func(t *testing.T) {
-		provider := NewCohereProvider("command", "test-key")
+		provider := NewCohereProvider("command", WithAPIKey("test-key"))
 		err := provider.GenerateStreaming(context.Background(), nil, []Message{
 			{Role: "user", Message: "test"},
 		}, nil)
@@ -158,7 +158,7 @@ func TestCohereProvider_Validation(t *testing.T) {
 	})
 
 	t.Run("invalid messages", func(t *testing.T) {
-		provider := NewCohereProvider("command", "test-key")
+		provider := NewCohereProvider("command", WithAPIKey("test-key"))
 		_, _, err := provider.Generate(context.Background(), nil, []Message{
 			{Role: "invalid", Message: "test"},
 		})
@@ -168,19 +168,19 @@ func TestCohereProvider_Validation(t *testing.T) {
 
 func TestNewCohereProvider(t *testing.T) {
 	t.Run("default model", func(t *testing.T) {
-		provider := NewCohereProvider("", "test-key")
+		provider := NewCohereProvider("", WithAPIKey("test-key"))
 		require.Equal(t, "command", provider.model)
 		require.Equal(t, "test-key", provider.apiKey)
 	})
 
 	t.Run("custom model", func(t *testing.T) {
-		provider := NewCohereProvider("command-light", "test-key")
+		provider := NewCohereProvider("command-light", WithAPIKey("test-key"))
 		require.Equal(t, "command-light", provider.model)
 		require.Equal(t, "test-key", provider.apiKey)
 	})
 
 	t.Run("configuration methods", func(t *testing.T) {
-		provider := NewCohereProvider("command", "test-key")
+		provider := NewCohereProvider("command", WithAPIKey("test-key"))
 
 		retryConfig := RetryConfig{MaxAttempts: 5}
 		provider = provider.WithRetryConfig(retryConfig)
@@ -195,7 +195,7 @@ func TestNewCohereProvider(t *testing.T) {
 func TestCohereProvider_ToolConversion(t *testing.T) {
 	// This would require importing the tool package for testing
 	// For now, we'll test the conversion logic with a mock tool
-	provider := NewCohereProvider("command", "test-key")
+	provider := NewCohereProvider("command", WithAPIKey("test-key"))
 
 	// Test with empty tools
 	tools := make(map[string]tool.Tool)
@@ -206,7 +206,7 @@ func TestCohereProvider_ToolConversion(t *testing.T) {
 }
 
 func TestCohereProvider_EmptyMessageHandling(t *testing.T) {
-	provider := NewCohereProvider("command", "test-key")
+	provider := NewCohereProvider("command", WithAPIKey("test-key"))
 
 	message, history := provider.convertMessagesToCohere([]Message{})
 	require.Empty(t, message)
@@ -226,7 +226,7 @@ func TestCohereProvider_ModelVariants(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.model, func(t *testing.T) {
-			provider := NewCohereProvider(tc.model, "test-key")
+			provider := NewCohereProvider(tc.model, WithAPIKey("test-key"))
 			require.Equal(t, tc.expected, provider.model)
 		})
 	}

@@ -23,7 +23,7 @@ func TestOpenAI(t *testing.T) {
 		t.Skip("BRAVE_API_KEY not set, skipping integration test")
 	}
 
-	op := NewOpenAIProvider("gpt-4o-mini", apiKey, 0.7)
+	op := NewOpenAIProvider("gpt-4o-mini", WithAPIKey(apiKey), WithTemperature(0.7))
 	cli := NewLanguageModel(op, WithIteration(10))
 
 	cli.AddTool(tool.NewBraveSearchTool(braveAPIKey))

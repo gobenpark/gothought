@@ -16,7 +16,7 @@ func TestOllamaProvider_Integration(t *testing.T) {
 	}
 
 	// Test with default localhost:11434
-	provider := NewOllamaProvider("gemma3", 0.7)
+	provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 
 	messages := []Message{
 		{
@@ -38,16 +38,16 @@ func TestOllamaProvider_Integration(t *testing.T) {
 }
 
 func TestOllamaProvider_CustomBaseURL(t *testing.T) {
-	provider := NewOllamaProvider("gemma3", 0.7, "http://custom-ollama:11434")
+	provider := NewOllamaProvider("gemma3", WithTemperature(0.7), WithOllamaURL("http://custom-ollama:11434"))
 	require.Equal(t, "http://custom-ollama:11434", provider.baseURL)
 
 	// Test with trailing slash
-	provider2 := NewOllamaProvider("gemma3", 0.7, "http://custom-ollama:11434/")
+	provider2 := NewOllamaProvider("gemma3", WithTemperature(0.7), WithOllamaURL("http://custom-ollama:11434/"))
 	require.Equal(t, "http://custom-ollama:11434", provider2.baseURL)
 }
 
 func TestOllamaProvider_MessageConversion(t *testing.T) {
-	provider := NewOllamaProvider("gemma3", 0.7)
+	provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 
 	tests := []struct {
 		name     string
@@ -104,7 +104,7 @@ func TestOllamaProvider_Streaming(t *testing.T) {
 		t.Skip("OLLAMA_TEST not set, skipping streaming test")
 	}
 
-	provider := NewOllamaProvider("gemma3", 0.7)
+	provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 
 	messages := []Message{
 		{
@@ -137,7 +137,7 @@ func TestOllamaProvider_Streaming(t *testing.T) {
 
 func TestOllamaProvider_Validation(t *testing.T) {
 	t.Run("empty model", func(t *testing.T) {
-		provider := NewOllamaProvider("", 0.7)
+		provider := NewOllamaProvider("")
 		_, _, err := provider.Generate(context.Background(), nil, []Message{
 			{Role: "user", Message: "test"},
 		})
@@ -146,7 +146,7 @@ func TestOllamaProvider_Validation(t *testing.T) {
 	})
 
 	t.Run("nil callback for streaming", func(t *testing.T) {
-		provider := NewOllamaProvider("gemma3", 0.7)
+		provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 		err := provider.GenerateStreaming(context.Background(), nil, []Message{
 			{Role: "user", Message: "test"},
 		}, nil)
@@ -155,7 +155,7 @@ func TestOllamaProvider_Validation(t *testing.T) {
 	})
 
 	t.Run("invalid messages", func(t *testing.T) {
-		provider := NewOllamaProvider("gemma3", 0.7)
+		provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 		_, _, err := provider.Generate(context.Background(), nil, []Message{
 			{Role: "invalid", Message: "test"},
 		})
@@ -165,21 +165,21 @@ func TestOllamaProvider_Validation(t *testing.T) {
 
 func TestNewOllamaProvider(t *testing.T) {
 	t.Run("default URL", func(t *testing.T) {
-		provider := NewOllamaProvider("gemma3", 0.7)
+		provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 		require.Equal(t, "http://localhost:11434", provider.baseURL)
 		require.Equal(t, "gemma3", provider.model)
 		require.Equal(t, float32(0.7), provider.temperature)
 	})
 
 	t.Run("custom URL", func(t *testing.T) {
-		provider := NewOllamaProvider("mistral", 0.5, "http://remote-ollama:8080")
+		provider := NewOllamaProvider("mistral", WithTemperature(0.5), WithOllamaURL("http://remote-ollama:8080"))
 		require.Equal(t, "http://remote-ollama:8080", provider.baseURL)
 		require.Equal(t, "mistral", provider.model)
 		require.Equal(t, float32(0.5), provider.temperature)
 	})
 
 	t.Run("configuration methods", func(t *testing.T) {
-		provider := NewOllamaProvider("gemma3", 0.7)
+		provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 
 		retryConfig := RetryConfig{MaxAttempts: 5}
 		provider = provider.WithRetryConfig(retryConfig)

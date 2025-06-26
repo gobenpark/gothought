@@ -16,7 +16,7 @@ func TestGeminiProvider_Generate(t *testing.T) {
 		t.Skip("GEMINI_API_KEY not set, skipping integration test")
 	}
 
-	p := NewGeminiProvider(apiKey, "gemini-2.5-flash")
+	p := NewGeminiProvider("gemini-2.5-flash", WithAPIKey(apiKey))
 	msgs, content, err := p.Generate(context.TODO(), nil, []Message{
 		{
 			Role:       "user",
@@ -56,7 +56,7 @@ func TestNewGeminiProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider := NewGeminiProvider(tt.apiKey, tt.model)
+			provider := NewGeminiProvider(tt.model, WithAPIKey(tt.apiKey))
 
 			assert.NotNil(t, provider)
 			assert.Equal(t, tt.wantKey, provider.apiKey)

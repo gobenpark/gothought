@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gobenpark/gothought/tool"
 	"github.com/samber/lo"
@@ -53,19 +52,20 @@ var _ Provider = (*OllamaProvider)(nil)
 var _ StreamingCapable = (*OllamaProvider)(nil)
 
 // NewOllamaProvider creates a new Ollama provider with the specified model and optional custom base URL
-func NewOllamaProvider(model string, temperature float32, baseURL ...string) *OllamaProvider {
-	url := "http://localhost:11434"
-	if len(baseURL) > 0 && baseURL[0] != "" {
-		url = strings.TrimSuffix(baseURL[0], "/")
-	}
-
-	return &OllamaProvider{
-		baseURL:       url,
+func NewOllamaProvider(model string, options ...ProviderOption) *OllamaProvider {
+	provider := &OllamaProvider{
+		baseURL:       "http://localhost:11434",
 		model:         model,
-		temperature:   temperature,
+		temperature:   0.7,
 		retryConfig:   DefaultRetryConfig(),
 		timeoutConfig: DefaultTimeoutConfig(),
 	}
+
+	for _, option := range options {
+		option(provider)
+	}
+
+	return provider
 }
 
 func (o *OllamaProvider) WithRetryConfig(config RetryConfig) *OllamaProvider {

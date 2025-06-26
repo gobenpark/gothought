@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gobenpark/gothought/tool"
 	"github.com/samber/lo"
@@ -19,6 +20,7 @@ type CohereProvider struct {
 	model         string
 	retryConfig   RetryConfig
 	timeoutConfig TimeoutConfig
+	temperature   float32
 }
 
 type CohereChatRequest struct {
@@ -75,17 +77,24 @@ var _ Provider = (*CohereProvider)(nil)
 var _ StreamingCapable = (*CohereProvider)(nil)
 
 // NewCohereProvider creates a new Cohere provider with the specified model and API key
-func NewCohereProvider(model, apiKey string) *CohereProvider {
+func NewCohereProvider(model string, options ...ProviderOption) *CohereProvider {
 	if model == "" {
 		model = "command" // Default Cohere model
 	}
 
-	return &CohereProvider{
-		apiKey:        apiKey,
+	provider := &CohereProvider{
+		apiKey:        os.Getenv("COHERE_API_KEY"),
 		model:         model,
+		temperature:   0.7,
 		retryConfig:   DefaultRetryConfig(),
 		timeoutConfig: DefaultTimeoutConfig(),
 	}
+
+	for _, option := range options {
+		option(provider)
+	}
+
+	return provider
 }
 
 func (c *CohereProvider) WithRetryConfig(config RetryConfig) *CohereProvider {

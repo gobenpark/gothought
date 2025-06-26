@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gobenpark/gothought/tool"
 	"github.com/samber/lo"
@@ -66,16 +67,19 @@ type ClaudeProvider struct {
 	maxTokens   int
 }
 
-func NewClaudeProvider(model string, apiKey string, temperature float32, maxTokens int) *ClaudeProvider {
-	if maxTokens <= 0 {
-		maxTokens = 4096
-	}
-	return &ClaudeProvider{
+func NewClaudeProvider(model string, options ...ProviderOption) *ClaudeProvider {
+	provider := &ClaudeProvider{
 		model:       model,
-		apiKey:      apiKey,
-		temperature: temperature,
-		maxTokens:   maxTokens,
+		apiKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		temperature: 0.7,
+		maxTokens:   4096,
 	}
+
+	for _, option := range options {
+		option(provider)
+	}
+
+	return provider
 }
 
 func (c *ClaudeProvider) convertMessages(messages []Message) ([]ClaudeMessage, string) {

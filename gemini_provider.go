@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gobenpark/gothought/tool"
 )
@@ -36,18 +37,26 @@ type GeminiResponse struct {
 }
 
 type GeminiProvider struct {
-	apiKey string
-	model  string // 모델 필드 추가
+	apiKey      string
+	model       string // 모델 필드 추가
+	temperature float32
 }
 
 var _ Provider = (*GeminiProvider)(nil)
 
 // NewGeminiProvider 생성자 수정
-func NewGeminiProvider(apiKey string, model string) *GeminiProvider {
-	return &GeminiProvider{
-		apiKey: apiKey,
-		model:  model,
+func NewGeminiProvider(model string, options ...ProviderOption) *GeminiProvider {
+	provider := &GeminiProvider{
+		model:       model,
+		apiKey:      os.Getenv("GEMINI_API_KEY"),
+		temperature: 0.7,
 	}
+
+	for _, option := range options {
+		option(provider)
+	}
+
+	return provider
 }
 
 func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Tool, messages []Message) (*Message, string, error) {
