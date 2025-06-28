@@ -12,6 +12,47 @@ func WithIteration(iter int) Option {
 	}
 }
 
+// WithContextManager sets a custom context manager for the language model
+func WithContextManager(cm ContextManager) Option {
+	return func(c *LanguageModel) {
+		c.contextManager = cm
+	}
+}
+
+// WithContextConfig sets the context configuration for the default context manager
+func WithContextConfig(config ContextConfig) Option {
+	return func(c *LanguageModel) {
+		c.contextManager = NewContextManager(config)
+	}
+}
+
+// WithMemoryLimit sets the maximum number of messages to keep in memory
+func WithMemoryLimit(maxMessages int) Option {
+	return func(c *LanguageModel) {
+		config := DefaultContextConfig()
+		config.MaxMessages = maxMessages
+		c.contextManager = NewContextManager(config)
+	}
+}
+
+// WithTokenLimit sets the target maximum tokens for context
+func WithTokenLimit(maxTokens int) Option {
+	return func(c *LanguageModel) {
+		config := DefaultContextConfig()
+		config.MaxTokens = maxTokens
+		c.contextManager = NewContextManager(config)
+	}
+}
+
+// WithPersistentStorage enables persistent storage with the given storage backend
+func WithPersistentStorage(storage StorageBackend) Option {
+	return func(c *LanguageModel) {
+		config := DefaultContextConfig()
+		config.StorageBackend = storage
+		c.contextManager = NewContextManager(config)
+	}
+}
+
 // Provider 공통 옵션
 type ProviderOption func(interface{})
 

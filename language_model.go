@@ -12,10 +12,11 @@ const (
 )
 
 type LanguageModel struct {
-	tools         map[string]tool.Tool
-	provider      Provider
-	messages      []Message
-	maxIterations int // maxIterations default int values 10
+	tools          map[string]tool.Tool
+	provider       Provider
+	messages       []Message
+	maxIterations  int // maxIterations default int values 10
+	contextManager ContextManager
 }
 
 func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
@@ -27,6 +28,11 @@ func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
 
 	for _, option := range options {
 		option(cli)
+	}
+
+	// Initialize with default context manager if none provided
+	if cli.contextManager == nil {
+		cli.contextManager = NewContextManager(DefaultContextConfig())
 	}
 
 	return cli
@@ -51,10 +57,19 @@ func (l *LanguageModel) AddTool(t tool.Tool) *LanguageModel {
 // It appends a new message with the "system" role to the client's message list.
 // System messages are typically used to set the behavior of the language model.
 func (l *LanguageModel) SystemPrompt(prompt string) *LanguageModel {
-	l.messages = append(l.messages, Message{
+	msg := Message{
 		Role:    "system",
 		Message: prompt,
-	})
+	}
+	l.messages = append(l.messages, msg)
+
+	// Also add to context manager if available
+	if l.contextManager != nil {
+		l.contextManager.AddMessage(msg)
+		// Sync with context manager's filtered messages
+		l.messages = l.contextManager.GetMessages()
+	}
+
 	return l
 }
 
@@ -94,10 +109,19 @@ func (l *LanguageModel) SystemPromptf(templateStr string, data interface{}) *Lan
 // AIPrompt adds an AI-generated message to the conversation.
 // It appends a new message with the "AI" role to the client's message list.
 func (l *LanguageModel) AIPrompt(prompt string) *LanguageModel {
-	l.messages = append(l.messages, Message{
+	msg := Message{
 		Role:    "AI",
 		Message: prompt,
-	})
+	}
+	l.messages = append(l.messages, msg)
+
+	// Also add to context manager if available
+	if l.contextManager != nil {
+		l.contextManager.AddMessage(msg)
+		// Sync with context manager's filtered messages
+		l.messages = l.contextManager.GetMessages()
+	}
+
 	return l
 }
 
@@ -105,16 +129,33 @@ func (l *LanguageModel) AIPrompt(prompt string) *LanguageModel {
 // It appends the provided message with its specified role to the client's message list.
 func (l *LanguageModel) Prompt(message Message) *LanguageModel {
 	l.messages = append(l.messages, message)
+
+	// Also add to context manager if available
+	if l.contextManager != nil {
+		l.contextManager.AddMessage(message)
+		// Sync with context manager's filtered messages
+		l.messages = l.contextManager.GetMessages()
+	}
+
 	return l
 }
 
 // HumanPrompt adds a user message to the conversation.
 // It appends a new message with the "user" role to the client's message list.
 func (l *LanguageModel) HumanPrompt(prompt string) *LanguageModel {
-	l.messages = append(l.messages, Message{
+	msg := Message{
 		Role:    "user",
 		Message: prompt,
-	})
+	}
+	l.messages = append(l.messages, msg)
+
+	// Also add to context manager if available
+	if l.contextManager != nil {
+		l.contextManager.AddMessage(msg)
+		// Sync with context manager's filtered messages
+		l.messages = l.contextManager.GetMessages()
+	}
+
 	return l
 }
 
@@ -269,4 +310,103 @@ func (o *LanguageModel) QWith(ctx context.Context, oj interface{}) error {
 		return NewParsingError("failed to parse structured output", err)
 	}
 	return nil
+}
+
+// Context Management Methods
+
+// EnableContextManagement enables automatic context management for the language model.
+// When enabled, messages are automatically managed by the context manager according
+// to configured limits and compression settings.
+func (l *LanguageModel) EnableContextManagement() *LanguageModel {
+	// Sync existing messages to context manager
+	for _, msg := range l.messages {
+		l.contextManager.AddMessage(msg)
+	}
+	return l
+}
+
+// SetContextManager sets a custom context manager for the language model.
+func (l *LanguageModel) SetContextManager(cm ContextManager) *LanguageModel {
+	l.contextManager = cm
+	return l
+}
+
+// GetContextManager returns the current context manager.
+func (l *LanguageModel) GetContextManager() ContextManager {
+	return l.contextManager
+}
+
+// SaveConversation saves the current conversation to persistent storage with the given session ID.
+func (l *LanguageModel) SaveConversation(sessionID string) error {
+	// Sync current messages to context manager
+	l.contextManager.Clear()
+	for _, msg := range l.messages {
+		if err := l.contextManager.AddMessage(msg); err != nil {
+			return err
+		}
+	}
+	return l.contextManager.SaveContext(sessionID)
+}
+
+// LoadConversation loads a conversation from persistent storage with the given session ID.
+func (l *LanguageModel) LoadConversation(sessionID string) error {
+	if err := l.contextManager.LoadContext(sessionID); err != nil {
+		return err
+	}
+	l.messages = l.contextManager.GetMessages()
+	return nil
+}
+
+// ClearConversation clears all messages from both the language model and context manager.
+func (l *LanguageModel) ClearConversation() *LanguageModel {
+	l.messages = make([]Message, 0)
+	l.contextManager.Clear()
+	return l
+}
+
+// CompressConversation compresses the conversation history to reduce token usage.
+// This method uses the provider to summarize older messages while preserving
+// system messages and recent conversation history.
+func (l *LanguageModel) CompressConversation(ctx context.Context, maxTokens int) error {
+	// Sync current messages to context manager
+	l.contextManager.Clear()
+	for _, msg := range l.messages {
+		if err := l.contextManager.AddMessage(msg); err != nil {
+			return err
+		}
+	}
+
+	// Perform compression
+	if err := l.contextManager.CompressContext(ctx, l.provider, maxTokens); err != nil {
+		return err
+	}
+
+	// Update messages from compressed context
+	l.messages = l.contextManager.GetMessages()
+	return nil
+}
+
+// GetConversationTokenCount estimates the total token count for the current conversation.
+func (l *LanguageModel) GetConversationTokenCount(modelName string) (int, error) {
+	// Sync current messages to context manager for accurate counting
+	l.contextManager.Clear()
+	for _, msg := range l.messages {
+		if err := l.contextManager.AddMessage(msg); err != nil {
+			return 0, err
+		}
+	}
+	return l.contextManager.GetTokenCount(modelName)
+}
+
+// GetOptimizedMessages returns messages optimized for the given token constraints.
+// This method filters and potentially compresses messages to fit within the specified limits.
+func (l *LanguageModel) GetOptimizedMessages(maxTokens int, modelName string) ([]Message, error) {
+	// Sync current messages to context manager
+	l.contextManager.Clear()
+	for _, msg := range l.messages {
+		if err := l.contextManager.AddMessage(msg); err != nil {
+			return nil, err
+		}
+	}
+	return l.contextManager.GetFilteredMessages(maxTokens, modelName)
 }
