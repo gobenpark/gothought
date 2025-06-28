@@ -110,8 +110,9 @@ func (l *LanguageModel) SystemPromptf(templateStr string, data interface{}) *Lan
 // It appends a new message with the "AI" role to the client's message list.
 func (l *LanguageModel) AIPrompt(prompt string) *LanguageModel {
 	msg := Message{
-		Role:    "AI",
+		Role:    "assistant",
 		Message: prompt,
+	}
 	}
 	l.messages = append(l.messages, msg)
 
