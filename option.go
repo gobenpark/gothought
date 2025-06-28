@@ -29,27 +29,60 @@ func WithContextConfig(config ContextConfig) Option {
 // WithMemoryLimit sets the maximum number of messages to keep in memory
 func WithMemoryLimit(maxMessages int) Option {
 	return func(c *LanguageModel) {
-		config := DefaultContextConfig()
-		config.MaxMessages = maxMessages
-		c.contextManager = NewContextManager(config)
+		// If no context manager exists, create one with default config
+		if c.contextManager == nil {
+			config := DefaultContextConfig()
+			config.MaxMessages = maxMessages
+			c.contextManager = NewContextManager(config)
+		} else if dcm, ok := c.contextManager.(*DefaultContextManager); ok {
+			// Update existing DefaultContextManager config
+			dcm.UpdateMaxMessages(maxMessages)
+		} else {
+			// For custom context managers, create a new default one
+			config := DefaultContextConfig()
+			config.MaxMessages = maxMessages
+			c.contextManager = NewContextManager(config)
+		}
 	}
 }
 
 // WithTokenLimit sets the target maximum tokens for context
 func WithTokenLimit(maxTokens int) Option {
 	return func(c *LanguageModel) {
-		config := DefaultContextConfig()
-		config.MaxTokens = maxTokens
-		c.contextManager = NewContextManager(config)
+		// If no context manager exists, create one with default config
+		if c.contextManager == nil {
+			config := DefaultContextConfig()
+			config.MaxTokens = maxTokens
+			c.contextManager = NewContextManager(config)
+		} else if dcm, ok := c.contextManager.(*DefaultContextManager); ok {
+			// Update existing DefaultContextManager config
+			dcm.UpdateMaxTokens(maxTokens)
+		} else {
+			// For custom context managers, create a new default one
+			config := DefaultContextConfig()
+			config.MaxTokens = maxTokens
+			c.contextManager = NewContextManager(config)
+		}
 	}
 }
 
 // WithPersistentStorage enables persistent storage with the given storage backend
 func WithPersistentStorage(storage StorageBackend) Option {
 	return func(c *LanguageModel) {
-		config := DefaultContextConfig()
-		config.StorageBackend = storage
-		c.contextManager = NewContextManager(config)
+		// If no context manager exists, create one with default config
+		if c.contextManager == nil {
+			config := DefaultContextConfig()
+			config.StorageBackend = storage
+			c.contextManager = NewContextManager(config)
+		} else if dcm, ok := c.contextManager.(*DefaultContextManager); ok {
+			// Update existing DefaultContextManager config
+			dcm.UpdateStorageBackend(storage)
+		} else {
+			// For custom context managers, create a new default one
+			config := DefaultContextConfig()
+			config.StorageBackend = storage
+			c.contextManager = NewContextManager(config)
+		}
 	}
 }
 

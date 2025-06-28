@@ -298,11 +298,11 @@ func TestLanguageModelContextIntegration(t *testing.T) {
 
 		// Clear and load
 		model.ClearConversation()
-		assert.Len(t, model.messages, 0)
+		assert.Len(t, model.GetContextManager().GetMessages(), 0)
 
 		err = model.LoadConversation("test-session")
 		require.NoError(t, err)
-		assert.Len(t, model.messages, 3)
+		assert.Len(t, model.GetContextManager().GetMessages(), 3)
 	})
 
 	t.Run("Token count estimation", func(t *testing.T) {
@@ -363,7 +363,7 @@ func TestContextManagerOptions(t *testing.T) {
 		}
 
 		// Should only keep 3 messages
-		assert.Len(t, model.messages, 3)
+		assert.Len(t, model.GetContextManager().GetMessages(), 3)
 	})
 
 	t.Run("WithTokenLimit", func(t *testing.T) {
@@ -374,7 +374,7 @@ func TestContextManagerOptions(t *testing.T) {
 		model := NewLanguageModel(mockProvider, WithTokenLimit(100))
 
 		cm := model.GetContextManager().(*DefaultContextManager)
-		assert.Equal(t, 100, cm.config.MaxTokens)
+		assert.Equal(t, 100, cm.GetConfig().MaxTokens)
 	})
 
 	t.Run("WithPersistentStorage", func(t *testing.T) {

@@ -255,6 +255,9 @@ func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName st
 
 	// Add messages from newest to oldest until we hit token limit
 	nonSystemMessages := cm.getNonSystemMessages()
+
+	// Build a temporary slice of selected messages in reverse order
+	var selectedMessages []Message
 	for i := len(nonSystemMessages) - 1; i >= 0; i-- {
 		msg := nonSystemMessages[i]
 		msgChars := len(msg.Message)
@@ -263,8 +266,13 @@ func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName st
 			break
 		}
 
-		result = append([]Message{msg}, result...)
+		selectedMessages = append(selectedMessages, msg)
 		totalChars += msgChars
+	}
+
+	// Reverse the selected messages and append to result (more efficient)
+	for i := len(selectedMessages) - 1; i >= 0; i-- {
+		result = append(result, selectedMessages[i])
 	}
 
 	return result, nil
@@ -436,6 +444,30 @@ func (cm *DefaultContextManager) createCompressionSummary(ctx context.Context, p
 	}
 
 	return response.Message, nil
+}
+
+// UpdateMaxMessages updates the maximum message limit for DefaultContextManager
+func (cm *DefaultContextManager) UpdateMaxMessages(maxMessages int) {
+	cm.config.MaxMessages = maxMessages
+	// Apply the new limit if needed
+	if len(cm.messages) > maxMessages {
+		cm.trimToMessageLimit()
+	}
+}
+
+// UpdateMaxTokens updates the maximum token limit for DefaultContextManager
+func (cm *DefaultContextManager) UpdateMaxTokens(maxTokens int) {
+	cm.config.MaxTokens = maxTokens
+}
+
+// UpdateStorageBackend updates the storage backend for DefaultContextManager
+func (cm *DefaultContextManager) UpdateStorageBackend(storage StorageBackend) {
+	cm.config.StorageBackend = storage
+}
+
+// GetConfig returns a copy of the current configuration
+func (cm *DefaultContextManager) GetConfig() ContextConfig {
+	return cm.config
 }
 
 // ContextAware interface for providers that support context management
