@@ -66,26 +66,6 @@ func WithTokenLimit(maxTokens int) Option {
 	}
 }
 
-// WithPersistentStorage enables persistent storage with the given storage backend
-func WithPersistentStorage(storage StorageBackend) Option {
-	return func(c *LanguageModel) {
-		// If no context manager exists, create one with default config
-		if c.contextManager == nil {
-			config := DefaultContextConfig()
-			config.StorageBackend = storage
-			c.contextManager = NewContextManager(config)
-		} else if dcm, ok := c.contextManager.(*DefaultContextManager); ok {
-			// Update existing DefaultContextManager config
-			dcm.UpdateStorageBackend(storage)
-		} else {
-			// For custom context managers, create a new default one
-			config := DefaultContextConfig()
-			config.StorageBackend = storage
-			c.contextManager = NewContextManager(config)
-		}
-	}
-}
-
 // Provider 공통 옵션
 type ProviderOption func(interface{})
 

@@ -377,7 +377,7 @@ func TestContextManagerOptions(t *testing.T) {
 		assert.Equal(t, 100, cm.GetConfig().MaxTokens)
 	})
 
-	t.Run("WithPersistentStorage", func(t *testing.T) {
+	t.Run("WithContextConfig for persistent storage", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -385,7 +385,10 @@ func TestContextManagerOptions(t *testing.T) {
 		tempDir := t.TempDir()
 		fileStorage := NewFileStorage(tempDir)
 
-		model := NewLanguageModel(mockProvider, WithPersistentStorage(fileStorage))
+		config := DefaultContextConfig()
+		config.StorageBackend = fileStorage
+
+		model := NewLanguageModel(mockProvider, WithContextConfig(config))
 
 		model.HumanPrompt("Test message")
 		err := model.SaveConversation("test-file-session")
