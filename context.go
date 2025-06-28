@@ -353,7 +353,7 @@ func (cm *DefaultContextManager) GetTokenCount(modelName string) (int, error) {
 	}
 
 	// Rough estimation: 4 characters per token for English
-	return int(float64(totalChars) * 0.25), nil
+	return int(float64(totalChars) / EstimatedCharsPerToken), nil
 }
 
 // SaveContext implements ContextManager.SaveContext
