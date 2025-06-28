@@ -238,7 +238,8 @@ func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName st
 
 	// For now, use simple character-based estimation
 	// Roughly 4 characters per token for English text
-	estimatedTokensPerChar := 0.25
+	const EstimatedCharsPerToken = 4.0 // Roughly 4 characters per token for English text
+	estimatedTokensPerChar := 1.0 / EstimatedCharsPerToken
 
 	var result []Message
 	var totalChars int
