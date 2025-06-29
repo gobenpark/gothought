@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gobenpark/gothought/messages"
+	"github.com/gobenpark/gothought/providers/models"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,14 +54,14 @@ func TestOllamaProvider_MessageConversion(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    []messages.Message
-		expected []OllamaMessage
+		expected []models.OllamaMessage
 	}{
 		{
 			name: "basic user message",
 			input: []messages.Message{
 				{Role: "user", Message: "Hello"},
 			},
-			expected: []OllamaMessage{
+			expected: []models.OllamaMessage{
 				{Role: "user", Content: "Hello"},
 			},
 		},
@@ -70,7 +71,7 @@ func TestOllamaProvider_MessageConversion(t *testing.T) {
 				{Role: "system", Message: "You are a helpful assistant"},
 				{Role: "user", Message: "Hello"},
 			},
-			expected: []OllamaMessage{
+			expected: []models.OllamaMessage{
 				{Role: "system", Content: "You are a helpful assistant"},
 				{Role: "user", Content: "Hello"},
 			},
@@ -83,7 +84,7 @@ func TestOllamaProvider_MessageConversion(t *testing.T) {
 				{Role: "human", Message: "Human message"},
 				{Role: "tool", Message: "Tool result"},
 			},
-			expected: []OllamaMessage{
+			expected: []models.OllamaMessage{
 				{Role: "assistant", Content: "AI response"},
 				{Role: "assistant", Content: "Assistant response"},
 				{Role: "user", Content: "Human message"},

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gobenpark/gothought/errors"
+	"github.com/gobenpark/gothought/memory"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers"
 	"github.com/gobenpark/gothought/tool"
@@ -13,7 +14,7 @@ type LanguageModel struct {
 	tools          map[string]tool.Tool
 	provider       Provider
 	maxIterations  int // maxIterations default int values 10
-	contextManager ContextManager
+	contextManager memory.MemoryManager
 }
 
 func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
@@ -29,7 +30,7 @@ func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
 
 	// Initialize with default context manager if none provided
 	if cli.contextManager == nil {
-		cli.contextManager = NewContextManager(DefaultContextConfig())
+		cli.contextManager = memory.NewMemoryManager((memory.DefaultMemoryConfig()))
 	}
 
 	return cli
@@ -299,14 +300,14 @@ func (l *LanguageModel) EnableContextManagement() *LanguageModel {
 	return l
 }
 
-// SetContextManager sets a custom context manager for the language model.
-func (l *LanguageModel) SetContextManager(cm ContextManager) *LanguageModel {
+// SetMemoryManager sets a custom context manager for the language model.
+func (l *LanguageModel) SetMemoryManager(cm memory.MemoryManager) *LanguageModel {
 	l.contextManager = cm
 	return l
 }
 
-// GetContextManager returns the current context manager.
-func (l *LanguageModel) GetContextManager() ContextManager {
+// GetMemoryManager returns the current context manager.
+func (l *LanguageModel) GetMemoryManager() memory.MemoryManager {
 	return l.contextManager
 }
 
@@ -329,9 +330,9 @@ func (l *LanguageModel) ClearConversation() *LanguageModel {
 // CompressConversation compresses the conversation history to reduce token usage.
 // This method uses the provider to summarize older messages while preserving
 // system messages and recent conversation history.
-func (l *LanguageModel) CompressConversation(ctx context.Context, maxTokens int) error {
-	return l.contextManager.CompressContext(ctx, l.provider, maxTokens)
-}
+//func (l *LanguageModel) CompressConversation(ctx context.Context, maxTokens int) error {
+//	return l.contextManager.CompressContext(ctx, l.provider, maxTokens)
+//}
 
 // GetConversationTokenCount estimates the total token count for the current conversation.
 func (l *LanguageModel) GetConversationTokenCount(modelName string) (int, error) {

@@ -1,7 +1,6 @@
-package gothought
+package memory
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,8 +11,8 @@ import (
 
 const EstimatedCharsPerToken = 4.0 // Roughly 4 characters per token for English text
 
-// ContextManager handles conversation context and memory management
-type ContextManager interface {
+// MemoryManager handles conversation context and memory management
+type MemoryManager interface {
 	// AddMessage adds a message to the context
 	AddMessage(message messages.Message) error
 
@@ -27,7 +26,7 @@ type ContextManager interface {
 	Clear()
 
 	// CompressContext summarizes older messages to reduce token usage
-	CompressContext(ctx context.Context, provider Provider, maxTokens int) error
+	//CompressContext(ctx context.Context, provider Provider, maxTokens int) error
 
 	// GetTokenCount estimates total tokens in current context
 	GetTokenCount(modelName string) (int, error)
@@ -39,8 +38,8 @@ type ContextManager interface {
 	LoadContext(sessionID string) error
 }
 
-// ContextConfig defines memory management configuration
-type ContextConfig struct {
+// MemoryConfig defines memory management configuration
+type MemoryConfig struct {
 	// MaxMessages is the maximum number of messages to keep in memory
 	MaxMessages int
 
@@ -61,8 +60,8 @@ type ContextConfig struct {
 }
 
 // DefaultContextConfig returns sensible defaults
-func DefaultContextConfig() ContextConfig {
-	return ContextConfig{
+func DefaultMemoryConfig() MemoryConfig {
+	return MemoryConfig{
 		MaxMessages:            50,
 		MaxTokens:              4000, // Conservative default for most models
 		PreserveSystemMessages: true,
@@ -194,22 +193,22 @@ func (f *FileStorage) Exists(sessionID string) bool {
 	return err == nil
 }
 
-// DefaultContextManager implements ContextManager
-type DefaultContextManager struct {
-	config   ContextConfig
+// DefaultMemoryManager implements MemoryManager
+type DefaultMemoryManager struct {
+	config   MemoryConfig
 	messages []messages.Message
 }
 
 // NewContextManager creates a new context manager with the given configuration
-func NewContextManager(config ContextConfig) *DefaultContextManager {
-	return &DefaultContextManager{
+func NewMemoryManager(config MemoryConfig) *DefaultMemoryManager {
+	return &DefaultMemoryManager{
 		config:   config,
 		messages: make([]messages.Message, 0),
 	}
 }
 
-// AddMessage implements ContextManager.AddMessage
-func (cm *DefaultContextManager) AddMessage(message messages.Message) error {
+// AddMessage implements MemoryManager.AddMessage
+func (cm *DefaultMemoryManager) AddMessage(message messages.Message) error {
 	cm.messages = append(cm.messages, message)
 
 	// Apply message limit
@@ -220,15 +219,15 @@ func (cm *DefaultContextManager) AddMessage(message messages.Message) error {
 	return nil
 }
 
-// GetMessages implements ContextManager.GetMessages
-func (cm *DefaultContextManager) GetMessages() []messages.Message {
+// GetMessages implements MemoryManager.GetMessages
+func (cm *DefaultMemoryManager) GetMessages() []messages.Message {
 	result := make([]messages.Message, len(cm.messages))
 	copy(result, cm.messages)
 	return result
 }
 
-// GetFilteredMessages implements ContextManager.GetFilteredMessages
-func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName string) ([]messages.Message, error) {
+// GetFilteredMessages implements MemoryManager.GetFilteredMessages
+func (cm *DefaultMemoryManager) GetFilteredMessages(maxTokens int, modelName string) ([]messages.Message, error) {
 	// Simple token estimation for now
 	// TODO: Integrate with token counting system when available
 	if len(cm.messages) == 0 {
@@ -282,72 +281,72 @@ func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName st
 	return result, nil
 }
 
-// Clear implements ContextManager.Clear
-func (cm *DefaultContextManager) Clear() {
+// Clear implements MemoryManager.Clear
+func (cm *DefaultMemoryManager) Clear() {
 	cm.messages = make([]messages.Message, 0)
 }
 
-// CompressContext implements ContextManager.CompressContext
-func (cm *DefaultContextManager) CompressContext(ctx context.Context, provider Provider, maxTokens int) error {
-	if len(cm.messages) <= cm.config.PreserveRecentMessages+1 {
-		return nil // Not enough messages to compress
-	}
+// CompressContext implements MemoryManager.CompressContext
+//func (cm *DefaultMemoryManager) CompressContext(ctx context.Context, provider Provider, maxTokens int) error {
+//	if len(cm.messages) <= cm.config.PreserveRecentMessages+1 {
+//		return nil // Not enough messages to compress
+//	}
+//
+//	// Find messages to compress (exclude system and recent messages)
+//	var toCompress []messages.Message
+//	var toKeep []messages.Message
+//
+//	recentStart := len(cm.messages) - cm.config.PreserveRecentMessages
+//
+//	for i, msg := range cm.messages {
+//		if msg.Role == "system" && cm.config.PreserveSystemMessages {
+//			toKeep = append(toKeep, msg)
+//		} else if i >= recentStart {
+//			toKeep = append(toKeep, msg)
+//		} else {
+//			toCompress = append(toCompress, msg)
+//		}
+//	}
+//
+//	if len(toCompress) == 0 {
+//		return nil
+//	}
+//
+//	// Create compression summary
+//	summary, err := cm.createCompressionSummary(ctx, provider, toCompress)
+//	if err != nil {
+//		return fmt.Errorf("failed to compress context: %w", err)
+//	}
+//
+//	// Replace compressed messages with summary
+//	var newMessages []messages.Message
+//
+//	// Add system messages first
+//	for _, msg := range toKeep {
+//		if msg.Role == "system" {
+//			newMessages = append(newMessages, msg)
+//		}
+//	}
+//
+//	// Add compression summary
+//	newMessages = append(newMessages, messages.Message{
+//		Role:    "system",
+//		Message: fmt.Sprintf("Previous conversation summary: %s", summary),
+//	})
+//
+//	// Add recent messages
+//	for _, msg := range toKeep {
+//		if msg.Role != "system" {
+//			newMessages = append(newMessages, msg)
+//		}
+//	}
+//
+//	cm.messages = newMessages
+//	return nil
+//}
 
-	// Find messages to compress (exclude system and recent messages)
-	var toCompress []messages.Message
-	var toKeep []messages.Message
-
-	recentStart := len(cm.messages) - cm.config.PreserveRecentMessages
-
-	for i, msg := range cm.messages {
-		if msg.Role == "system" && cm.config.PreserveSystemMessages {
-			toKeep = append(toKeep, msg)
-		} else if i >= recentStart {
-			toKeep = append(toKeep, msg)
-		} else {
-			toCompress = append(toCompress, msg)
-		}
-	}
-
-	if len(toCompress) == 0 {
-		return nil
-	}
-
-	// Create compression summary
-	summary, err := cm.createCompressionSummary(ctx, provider, toCompress)
-	if err != nil {
-		return fmt.Errorf("failed to compress context: %w", err)
-	}
-
-	// Replace compressed messages with summary
-	var newMessages []messages.Message
-
-	// Add system messages first
-	for _, msg := range toKeep {
-		if msg.Role == "system" {
-			newMessages = append(newMessages, msg)
-		}
-	}
-
-	// Add compression summary
-	newMessages = append(newMessages, messages.Message{
-		Role:    "system",
-		Message: fmt.Sprintf("Previous conversation summary: %s", summary),
-	})
-
-	// Add recent messages
-	for _, msg := range toKeep {
-		if msg.Role != "system" {
-			newMessages = append(newMessages, msg)
-		}
-	}
-
-	cm.messages = newMessages
-	return nil
-}
-
-// GetTokenCount implements ContextManager.GetTokenCount
-func (cm *DefaultContextManager) GetTokenCount(modelName string) (int, error) {
+// GetTokenCount implements MemoryManager.GetTokenCount
+func (cm *DefaultMemoryManager) GetTokenCount(modelName string) (int, error) {
 	// Simple character-based estimation for now
 	// TODO: Integrate with proper token counting when available
 	totalChars := 0
@@ -359,13 +358,13 @@ func (cm *DefaultContextManager) GetTokenCount(modelName string) (int, error) {
 	return int(float64(totalChars) / EstimatedCharsPerToken), nil
 }
 
-// SaveContext implements ContextManager.SaveContext
-func (cm *DefaultContextManager) SaveContext(sessionID string) error {
+// SaveContext implements MemoryManager.SaveContext
+func (cm *DefaultMemoryManager) SaveContext(sessionID string) error {
 	return cm.config.StorageBackend.Save(sessionID, cm.messages)
 }
 
-// LoadContext implements ContextManager.LoadContext
-func (cm *DefaultContextManager) LoadContext(sessionID string) error {
+// LoadContext implements MemoryManager.LoadContext
+func (cm *DefaultMemoryManager) LoadContext(sessionID string) error {
 	messages, err := cm.config.StorageBackend.Load(sessionID)
 	if err != nil {
 		return err
@@ -376,7 +375,7 @@ func (cm *DefaultContextManager) LoadContext(sessionID string) error {
 
 // Helper methods
 
-func (cm *DefaultContextManager) trimToMessageLimit() {
+func (cm *DefaultMemoryManager) trimToMessageLimit() {
 	if len(cm.messages) <= cm.config.MaxMessages {
 		return
 	}
@@ -408,7 +407,7 @@ func (cm *DefaultContextManager) trimToMessageLimit() {
 	cm.messages = append(systemMessages, otherMessages...)
 }
 
-func (cm *DefaultContextManager) getNonSystemMessages() []messages.Message {
+func (cm *DefaultMemoryManager) getNonSystemMessages() []messages.Message {
 	var result []messages.Message
 	for _, msg := range cm.messages {
 		if msg.Role != "system" {
@@ -418,40 +417,40 @@ func (cm *DefaultContextManager) getNonSystemMessages() []messages.Message {
 	return result
 }
 
-func (cm *DefaultContextManager) createCompressionSummary(ctx context.Context, provider Provider, msgs []messages.Message) (string, error) {
-	if len(msgs) == 0 {
-		return "", nil
-	}
+//func (cm *DefaultMemoryManager) createCompressionSummary(ctx context.Context, provider Provider, msgs []messages.Message) (string, error) {
+//	if len(msgs) == 0 {
+//		return "", nil
+//	}
+//
+//	// Create a temporary conversation for summarization
+//	var conversationText string
+//	for _, msg := range msgs {
+//		conversationText += fmt.Sprintf("%s: %s\n", msg.Role, msg.Message)
+//	}
+//
+//	// Create summarization prompt
+//	summaryMessages := []messages.Message{
+//		{
+//			Role:    "system",
+//			Message: "Summarize the following conversation concisely, preserving key information and context:",
+//		},
+//		{
+//			Role:    "human",
+//			Message: conversationText,
+//		},
+//	}
+//
+//	// Generate summary
+//	response, _, err := provider.Generate(ctx, nil, summaryMessages)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	return response.Message, nil
+//}
 
-	// Create a temporary conversation for summarization
-	var conversationText string
-	for _, msg := range msgs {
-		conversationText += fmt.Sprintf("%s: %s\n", msg.Role, msg.Message)
-	}
-
-	// Create summarization prompt
-	summaryMessages := []messages.Message{
-		{
-			Role:    "system",
-			Message: "Summarize the following conversation concisely, preserving key information and context:",
-		},
-		{
-			Role:    "human",
-			Message: conversationText,
-		},
-	}
-
-	// Generate summary
-	response, _, err := provider.Generate(ctx, nil, summaryMessages)
-	if err != nil {
-		return "", err
-	}
-
-	return response.Message, nil
-}
-
-// UpdateMaxMessages updates the maximum message limit for DefaultContextManager
-func (cm *DefaultContextManager) UpdateMaxMessages(maxMessages int) {
+// UpdateMaxMessages updates the maximum message limit for DefaultMemoryManager
+func (cm *DefaultMemoryManager) UpdateMaxMessages(maxMessages int) {
 	cm.config.MaxMessages = maxMessages
 	// Apply the new limit if needed
 	if len(cm.messages) > maxMessages {
@@ -459,23 +458,23 @@ func (cm *DefaultContextManager) UpdateMaxMessages(maxMessages int) {
 	}
 }
 
-// UpdateMaxTokens updates the maximum token limit for DefaultContextManager
-func (cm *DefaultContextManager) UpdateMaxTokens(maxTokens int) {
+// UpdateMaxTokens updates the maximum token limit for DefaultMemoryManager
+func (cm *DefaultMemoryManager) UpdateMaxTokens(maxTokens int) {
 	cm.config.MaxTokens = maxTokens
 }
 
-// UpdateStorageBackend updates the storage backend for DefaultContextManager
-func (cm *DefaultContextManager) UpdateStorageBackend(storage StorageBackend) {
+// UpdateStorageBackend updates the storage backend for DefaultMemoryManager
+func (cm *DefaultMemoryManager) UpdateStorageBackend(storage StorageBackend) {
 	cm.config.StorageBackend = storage
 }
 
 // GetConfig returns a copy of the current configuration
-func (cm *DefaultContextManager) GetConfig() ContextConfig {
+func (cm *DefaultMemoryManager) GetConfig() MemoryConfig {
 	return cm.config
 }
 
 // ContextAware interface for providers that support context management
 type ContextAware interface {
-	GetContextManager() ContextManager
-	SetContextManager(ContextManager)
+	GetContextManager() MemoryManager
+	SetContextManager(MemoryManager)
 }

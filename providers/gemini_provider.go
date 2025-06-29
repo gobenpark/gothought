@@ -10,32 +10,9 @@ import (
 	"os"
 
 	"github.com/gobenpark/gothought/messages"
+	"github.com/gobenpark/gothought/providers/models"
 	"github.com/gobenpark/gothought/tool"
 )
-
-type GeminiResponse struct {
-	Candidates []struct {
-		Content struct {
-			Parts []struct {
-				Text string `json:"text"`
-			} `json:"parts"`
-			Role string `json:"role"`
-		} `json:"content"`
-		FinishReason string `json:"finishReason"`
-		Index        int    `json:"index"`
-	} `json:"candidates"`
-	UsageMetadata struct {
-		PromptTokenCount     int `json:"promptTokenCount"`
-		CandidatesTokenCount int `json:"candidatesTokenCount"`
-		TotalTokenCount      int `json:"totalTokenCount"`
-		PromptTokensDetails  []struct {
-			Modality   string `json:"modality"`
-			TokenCount int    `json:"tokenCount"`
-		} `json:"promptTokensDetails"`
-	} `json:"usageMetadata"`
-	ModelVersion string `json:"modelVersion"`
-	ResponseId   string `json:"responseId"`
-}
 
 type GeminiProvider struct {
 	apiKey      string
@@ -110,7 +87,7 @@ func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Too
 		return nil, "", err
 	}
 
-	var generativeContent GeminiResponse
+	var generativeContent models.GeminiResponse
 	if err := json.NewDecoder(buf).Decode(&generativeContent); err != nil {
 		return nil, "", fmt.Errorf("failed to unmarshal response: %v", err)
 	}

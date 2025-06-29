@@ -12,6 +12,7 @@ import (
 
 	"github.com/gobenpark/gothought/errors"
 	"github.com/gobenpark/gothought/messages"
+	"github.com/gobenpark/gothought/providers/models"
 	"github.com/gobenpark/gothought/tool"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -23,52 +24,6 @@ type CohereProvider struct {
 	retryConfig   RetryConfig
 	timeoutConfig TimeoutConfig
 	temperature   float32
-}
-
-type CohereChatRequest struct {
-	Message          string              `json:"message"`
-	Model            string              `json:"model,omitempty"`
-	ChatHistory      []CohereChatMessage `json:"chat_history,omitempty"`
-	ConversationID   string              `json:"conversation_id,omitempty"`
-	Stream           bool                `json:"stream,omitempty"`
-	Temperature      float32             `json:"temperature,omitempty"`
-	MaxTokens        int                 `json:"max_tokens,omitempty"`
-	PromptTruncation string              `json:"prompt_truncation,omitempty"`
-	Tools            []CohereTool        `json:"tools,omitempty"`
-}
-
-type CohereChatMessage struct {
-	Role    string `json:"role"`
-	Message string `json:"message"`
-}
-
-type CohereTool struct {
-	Name                 string                 `json:"name"`
-	Description          string                 `json:"description"`
-	ParameterDefinitions map[string]interface{} `json:"parameter_definitions"`
-}
-
-type CohereChatResponse struct {
-	Text           string           `json:"text"`
-	GenerationID   string           `json:"generation_id"`
-	ConversationID string           `json:"conversation_id"`
-	Citations      []interface{}    `json:"citations"`
-	ToolCalls      []CohereToolCall `json:"tool_calls,omitempty"`
-	FinishReason   string           `json:"finish_reason,omitempty"`
-}
-
-type CohereToolCall struct {
-	Name       string                 `json:"name"`
-	Parameters map[string]interface{} `json:"parameters"`
-}
-
-type CohereStreamResponse struct {
-	EventType      string `json:"event_type"`
-	Text           string `json:"text,omitempty"`
-	IsFinished     bool   `json:"is_finished,omitempty"`
-	FinishReason   string `json:"finish_reason,omitempty"`
-	GenerationID   string `json:"generation_id,omitempty"`
-	ConversationID string `json:"conversation_id,omitempty"`
 }
 
 const (
@@ -107,7 +62,7 @@ func (c *CohereProvider) WithTimeoutConfig(config TimeoutConfig) *CohereProvider
 }
 
 // convertMessagesToCohere converts internal Message format to Cohere's chat history format
-func (c *CohereProvider) convertMessagesToCohere(messages []messages.Message) (string, []CohereChatMessage) {
+func (c *CohereProvider) convertMessagesToCohere(messages []messages.Message) (string, []models.CohereChatMessage) {
 	if len(messages) == 0 {
 		return "", nil
 	}
@@ -117,7 +72,7 @@ func (c *CohereProvider) convertMessagesToCohere(messages []messages.Message) (s
 	currentMessage := lastMessage.Message
 
 	// Convert previous messages to chat history
-	var chatHistory []CohereChatMessage
+	var chatHistory []models.CohereChatMessage
 	for i, msg := range messages[:len(messages)-1] {
 		// Skip the last message as it's the current prompt
 		if i == len(messages)-1 {
@@ -142,7 +97,7 @@ func (c *CohereProvider) convertMessagesToCohere(messages []messages.Message) (s
 			role = "CHATBOT"
 		}
 
-		chatHistory = append(chatHistory, CohereChatMessage{
+		chatHistory = append(chatHistory, models.CohereChatMessage{
 			Role:    role,
 			Message: msg.Message,
 		})
@@ -152,8 +107,8 @@ func (c *CohereProvider) convertMessagesToCohere(messages []messages.Message) (s
 }
 
 // convertToolsToCohere converts internal tool format to Cohere's tool format
-func (c *CohereProvider) convertToolsToCohere(tools map[string]tool.Tool) []CohereTool {
-	return lo.MapToSlice(tools, func(key string, value tool.Tool) CohereTool {
+func (c *CohereProvider) convertToolsToCohere(tools map[string]tool.Tool) []models.CohereTool {
+	return lo.MapToSlice(tools, func(key string, value tool.Tool) models.CohereTool {
 		schema := value.ParameterSchema()
 		paramDefs := make(map[string]interface{})
 
@@ -170,7 +125,7 @@ func (c *CohereProvider) convertToolsToCohere(tools map[string]tool.Tool) []Cohe
 			}
 		}
 
-		return CohereTool{
+		return models.CohereTool{
 			Name:                 value.Name(),
 			Description:          value.Description(),
 			ParameterDefinitions: paramDefs,
@@ -225,7 +180,7 @@ func (c *CohereProvider) Generate(ctx context.Context, tools map[string]tool.Too
 func (c *CohereProvider) generateWithoutRetry(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	currentMessage, chatHistory := c.convertMessagesToCohere(msgs)
 
-	body := CohereChatRequest{
+	body := models.CohereChatRequest{
 		Message:          currentMessage,
 		Model:            c.model,
 		ChatHistory:      chatHistory,
@@ -340,7 +295,7 @@ func (c *CohereProvider) GenerateStreaming(ctx context.Context, tools map[string
 
 	currentMessage, chatHistory := c.convertMessagesToCohere(msgs)
 
-	body := CohereChatRequest{
+	body := models.CohereChatRequest{
 		Message:          currentMessage,
 		Model:            c.model,
 		ChatHistory:      chatHistory,
@@ -408,7 +363,7 @@ func (c *CohereProvider) GenerateStreaming(ctx context.Context, tools map[string
 				break
 			}
 
-			var chunkResponse CohereStreamResponse
+			var chunkResponse models.CohereStreamResponse
 			if err := json.Unmarshal(data, &chunkResponse); err != nil {
 				return errors.NewParsingError("failed to parse streaming chunk", err).WithContext("chunk_data", string(data))
 			}
