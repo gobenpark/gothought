@@ -113,7 +113,7 @@ provider := gothought.NewOpenAIProvider(
 model := gothought.NewLanguageModel(provider)
 
 // Add a tool to the model
-braveSearchTool := tool.NewBraveSearchTool(os.Getenv("BRAVE_API_KEY"))
+braveSearchTool := tools.NewBraveSearchTool(os.Getenv("BRAVE_API_KEY"))
 model.AddTool(braveSearchTool)
 
 // Now the LLM can use the tool to answer questions
