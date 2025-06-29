@@ -12,7 +12,10 @@ gothought provides a simple, fluent API for interacting with Large Language Mode
 
 ```go
 // Initialize with an OpenAI provider
-provider := gothought.NewOpenAIProvider("gpt-4o", os.Getenv("OPENAI_API_KEY"), 0.7)
+provider := providers.NewOpenAIProvider("gpt-4o", 
+    providers.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+    providers.WithTemperature(0.7),
+)
 
 // Create a language model with the provider
 model := gothought.NewLanguageModel(provider)
@@ -48,6 +51,8 @@ While solutions like langchain-go offer comprehensive features, they often requi
 - Go template-based prompt templates with `{{.Variable}}` syntax
 - Comprehensive error handling and retry mechanisms
 - Type-safe structured output parsing
+- **Modular Architecture**: Clean separation with dedicated `models` and `messages` packages
+- **Enhanced Type Consistency**: Centralized type definitions for improved maintainability
 
 ## Installation
 
@@ -66,14 +71,14 @@ import (
     "os"
     
     "github.com/gobenpark/gothought"
+    "github.com/gobenpark/gothought/providers"
 )
 
 func main() {
     // Initialize provider with model, API key and temperature
-    provider := gothought.NewOpenAIProvider(
-        "gpt-4o", 
-        os.Getenv("OPENAI_API_KEY"),
-        0.7,
+    provider := providers.NewOpenAIProvider("gpt-4o", 
+        providers.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+        providers.WithTemperature(0.7),
     )
     
     // Create language model with the provider
@@ -268,6 +273,8 @@ func (t *MyCustomTool) Call(ctx context.Context, params string) (string, error) 
 - ✅ **Error Handling**: Comprehensive error types and retry mechanisms
 - ✅ **Streaming Support**: Real-time response streaming for all providers
 - ✅ **Tool System**: Extensible tool interface with function calling
+- ✅ **Modular Architecture**: Separated provider models and message types into dedicated packages
+- ✅ **Type Consistency**: Centralized type definitions across all providers for better maintainability
 
 ### In Progress 🚧
 - 🚧 **Token Management**: Token counting and cost tracking system
