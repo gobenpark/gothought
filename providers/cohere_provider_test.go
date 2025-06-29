@@ -1,4 +1,4 @@
-package gothought
+package providers
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/tool"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,7 @@ func TestCohereProvider_Integration(t *testing.T) {
 
 	provider := NewCohereProvider("command", WithAPIKey(apiKey))
 
-	messages := []Message{
+	messages := []messages.Message{
 		{
 			Role:    "user",
 			Message: "Hello! Please respond with just 'Hi there!' for this test.",
@@ -42,14 +43,14 @@ func TestCohereProvider_MessageConversion(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		input              []Message
+		input              []messages.Message
 		expectedMessage    string
 		expectedHistoryLen int
 		expectedFirstRole  string
 	}{
 		{
 			name: "single user message",
-			input: []Message{
+			input: []messages.Message{
 				{Role: "user", Message: "Hello"},
 			},
 			expectedMessage:    "Hello",
@@ -57,7 +58,7 @@ func TestCohereProvider_MessageConversion(t *testing.T) {
 		},
 		{
 			name: "conversation with history",
-			input: []Message{
+			input: []messages.Message{
 				{Role: "user", Message: "First message"},
 				{Role: "assistant", Message: "First response"},
 				{Role: "user", Message: "Second message"},
@@ -68,7 +69,7 @@ func TestCohereProvider_MessageConversion(t *testing.T) {
 		},
 		{
 			name: "system message handling",
-			input: []Message{
+			input: []messages.Message{
 				{Role: "system", Message: "You are helpful"},
 				{Role: "user", Message: "Hello"},
 			},
@@ -77,7 +78,7 @@ func TestCohereProvider_MessageConversion(t *testing.T) {
 		},
 		{
 			name: "role mapping",
-			input: []Message{
+			input: []messages.Message{
 				{Role: "AI", Message: "AI response"},
 				{Role: "human", Message: "Human message"},
 				{Role: "tool", Message: "Tool result"},
@@ -109,7 +110,7 @@ func TestCohereProvider_Streaming(t *testing.T) {
 
 	provider := NewCohereProvider("command", WithAPIKey(apiKey))
 
-	messages := []Message{
+	msgs := []messages.Message{
 		{
 			Role:    "user",
 			Message: "Count from 1 to 3. Respond with just the numbers.",
@@ -117,14 +118,14 @@ func TestCohereProvider_Streaming(t *testing.T) {
 	}
 
 	var responses []string
-	callback := func(message Message) error {
-		responses = append(responses, message.Message)
-		t.Logf("Streaming chunk: %s", message.Message)
+	callback := func(msg messages.Message) error {
+		responses = append(responses, msg.Message)
+		t.Logf("Streaming chunk: %s", msg.Message)
 		return nil
 	}
 
 	ctx := context.Background()
-	err := provider.GenerateStreaming(ctx, nil, messages, callback)
+	err := provider.GenerateStreaming(ctx, nil, msgs, callback)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, responses)
@@ -141,7 +142,7 @@ func TestCohereProvider_Streaming(t *testing.T) {
 func TestCohereProvider_Validation(t *testing.T) {
 	t.Run("empty API key", func(t *testing.T) {
 		provider := NewCohereProvider("command")
-		_, _, err := provider.Generate(context.Background(), nil, []Message{
+		_, _, err := provider.Generate(context.Background(), nil, []messages.Message{
 			{Role: "user", Message: "test"},
 		})
 		require.Error(t, err)
@@ -150,7 +151,7 @@ func TestCohereProvider_Validation(t *testing.T) {
 
 	t.Run("nil callback for streaming", func(t *testing.T) {
 		provider := NewCohereProvider("command", WithAPIKey("test-key"))
-		err := provider.GenerateStreaming(context.Background(), nil, []Message{
+		err := provider.GenerateStreaming(context.Background(), nil, []messages.Message{
 			{Role: "user", Message: "test"},
 		}, nil)
 		require.Error(t, err)
@@ -159,7 +160,7 @@ func TestCohereProvider_Validation(t *testing.T) {
 
 	t.Run("invalid messages", func(t *testing.T) {
 		provider := NewCohereProvider("command", WithAPIKey("test-key"))
-		_, _, err := provider.Generate(context.Background(), nil, []Message{
+		_, _, err := provider.Generate(context.Background(), nil, []messages.Message{
 			{Role: "invalid", Message: "test"},
 		})
 		require.Error(t, err)
@@ -208,7 +209,7 @@ func TestCohereProvider_ToolConversion(t *testing.T) {
 func TestCohereProvider_EmptyMessageHandling(t *testing.T) {
 	provider := NewCohereProvider("command", WithAPIKey("test-key"))
 
-	message, history := provider.convertMessagesToCohere([]Message{})
+	message, history := provider.convertMessagesToCohere([]messages.Message{})
 	require.Empty(t, message)
 	require.Nil(t, history)
 }

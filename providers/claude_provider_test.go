@@ -1,10 +1,11 @@
-package gothought
+package providers
 
 import (
 	"context"
 	"os"
 	"testing"
 
+	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/tool"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,14 +19,14 @@ func TestClaudeProvider_Integration(t *testing.T) {
 	provider := NewClaudeProvider("claude-3-haiku-20240307", WithAPIKey(apiKey), WithTemperature(0.7), WithMaxTokens(1024))
 
 	t.Run("Simple Text Generation", func(t *testing.T) {
-		messages := []Message{
+		msg := []messages.Message{
 			{Role: "user", Message: "Say hello in a friendly way"},
 		}
 
-		result, finishReason, err := provider.Generate(context.Background(), nil, messages)
+		result, finishReason, err := provider.Generate(context.Background(), nil, msg)
 
 		assert.NoError(t, err)
-		assert.Equal(t, FinishReasonStop, finishReason)
+		assert.Equal(t, messages.FinishReasonStop, finishReason)
 		assert.NotNil(t, result)
 		assert.NotEmpty(t, result.Message)
 	})
@@ -40,14 +41,14 @@ func TestClaudeProvider_Integration(t *testing.T) {
 			"brave_web_search": tool.NewBraveSearchTool(braveAPIKey),
 		}
 
-		messages := []Message{
+		msg := []messages.Message{
 			{Role: "user", Message: "Search for the current weather in Seoul"},
 		}
 
-		result, finishReason, err := provider.Generate(context.Background(), tools, messages)
+		result, finishReason, err := provider.Generate(context.Background(), tools, msg)
 
 		assert.NoError(t, err)
-		assert.Equal(t, FinishReasonToolCalls, finishReason)
+		assert.Equal(t, messages.FinishReasonToolCalls, finishReason)
 		assert.NotNil(t, result)
 		assert.NotEmpty(t, result.ToolCalls)
 		assert.Equal(t, "brave_web_search", result.ToolCalls[0].Function.Name)
@@ -62,7 +63,7 @@ func TestClaudeProvider_MessageConversion(t *testing.T) {
 	provider := NewClaudeProvider("claude-3-haiku-20240307", WithAPIKey(apiKey), WithTemperature(0.7), WithMaxTokens(1024))
 
 	t.Run("Convert Simple Messages", func(t *testing.T) {
-		messages := []Message{
+		messages := []messages.Message{
 			{Role: "system", Message: "You are a helpful assistant"},
 			{Role: "user", Message: "Hello"},
 			{Role: "assistant", Message: "Hi there!"},
@@ -79,10 +80,10 @@ func TestClaudeProvider_MessageConversion(t *testing.T) {
 	})
 
 	t.Run("Convert Tool Call Messages", func(t *testing.T) {
-		messages := []Message{
+		messages := []messages.Message{
 			{
 				Role: "assistant",
-				ToolCalls: []ToolCalls{
+				ToolCalls: []messages.ToolCalls{
 					{
 						ID:   "call_123",
 						Type: "function",
@@ -127,17 +128,17 @@ func TestClaudeProvider_Streaming(t *testing.T) {
 	provider := NewClaudeProvider("claude-3-haiku-20240307", WithAPIKey(apiKey), WithTemperature(0.7), WithMaxTokens(1024))
 
 	t.Run("Streaming Response", func(t *testing.T) {
-		messages := []Message{
+		msg := []messages.Message{
 			{Role: "user", Message: "Count from 1 to 5"},
 		}
 
 		var receivedMessages []string
-		callback := func(message Message) error {
-			receivedMessages = append(receivedMessages, message.Message)
+		callback := func(msgs messages.Message) error {
+			receivedMessages = append(receivedMessages, msgs.Message)
 			return nil
 		}
 
-		err := provider.GenerateStreaming(context.Background(), nil, messages, callback)
+		err := provider.GenerateStreaming(context.Background(), nil, msg, callback)
 
 		assert.NoError(t, err)
 		assert.NotEmpty(t, receivedMessages)

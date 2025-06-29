@@ -1,4 +1,4 @@
-package gothought
+package providers
 
 import (
 	"bufio"
@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/tool"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -82,7 +83,7 @@ func NewClaudeProvider(model string, options ...ProviderOption) *ClaudeProvider 
 	return provider
 }
 
-func (c *ClaudeProvider) convertMessages(messages []Message) ([]ClaudeMessage, string) {
+func (c *ClaudeProvider) convertMessages(messages []messages.Message) ([]ClaudeMessage, string) {
 	var claudeMessages []ClaudeMessage
 	var systemMessage string
 
@@ -141,8 +142,8 @@ func (c *ClaudeProvider) convertTools(tools map[string]tool.Tool) []ClaudeTool {
 	})
 }
 
-func (c *ClaudeProvider) Generate(ctx context.Context, tools map[string]tool.Tool, messages []Message) (*Message, string, error) {
-	claudeMessages, systemMessage := c.convertMessages(messages)
+func (c *ClaudeProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+	claudeMessages, systemMessage := c.convertMessages(msgs)
 
 	request := ClaudeRequest{
 		Model:       c.model,
@@ -195,19 +196,19 @@ func (c *ClaudeProvider) Generate(ctx context.Context, tools map[string]tool.Too
 				textContent += content.Get("text").String()
 			}
 		}
-		return &Message{
+		return &messages.Message{
 			Message: textContent,
-		}, FinishReasonStop, nil
+		}, messages.FinishReasonStop, nil
 
 	case "tool_use":
-		assistantMessage := Message{
+		assistantMessage := messages.Message{
 			Role: "assistant",
 		}
-		var toolCalls []ToolCalls
+		var toolCalls []messages.ToolCalls
 
 		for _, content := range re.Get("content").Array() {
 			if content.Get("type").String() == "tool_use" {
-				toolCall := ToolCalls{
+				toolCall := messages.ToolCalls{
 					ID:   content.Get("id").String(),
 					Type: "function",
 				}
@@ -221,14 +222,14 @@ func (c *ClaudeProvider) Generate(ctx context.Context, tools map[string]tool.Too
 		}
 		assistantMessage.ToolCalls = toolCalls
 
-		return &assistantMessage, FinishReasonToolCalls, nil
+		return &assistantMessage, messages.FinishReasonToolCalls, nil
 	}
 
 	return nil, "", errors.New("unexpected response format")
 }
 
-func (c *ClaudeProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, messages []Message, callback func(message Message) error) error {
-	claudeMessages, systemMessage := c.convertMessages(messages)
+func (c *ClaudeProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(message messages.Message) error) error {
+	claudeMessages, systemMessage := c.convertMessages(msgs)
 
 	request := ClaudeRequest{
 		Model:       c.model,
@@ -292,7 +293,7 @@ func (c *ClaudeProvider) GenerateStreaming(ctx context.Context, tools map[string
 			if re.Get("delta.type").String() == "text_delta" {
 				text := re.Get("delta.text").String()
 				if text != "" {
-					message := Message{
+					message := messages.Message{
 						Message: text,
 					}
 					if err := callback(message); err != nil {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gobenpark/gothought/messages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -15,8 +16,8 @@ func TestDefaultContextManager(t *testing.T) {
 	t.Run("AddMessage and GetMessages", func(t *testing.T) {
 		cm := NewContextManager(DefaultContextConfig())
 
-		msg1 := Message{Role: "user", Message: "Hello"}
-		msg2 := Message{Role: "assistant", Message: "Hi there!"}
+		msg1 := messages.Message{Role: "user", Message: "Hello"}
+		msg2 := messages.Message{Role: "assistant", Message: "Hi there!"}
 
 		err := cm.AddMessage(msg1)
 		require.NoError(t, err)
@@ -33,8 +34,8 @@ func TestDefaultContextManager(t *testing.T) {
 	t.Run("Clear", func(t *testing.T) {
 		cm := NewContextManager(DefaultContextConfig())
 
-		cm.AddMessage(Message{Role: "user", Message: "Hello"})
-		cm.AddMessage(Message{Role: "assistant", Message: "Hi!"})
+		cm.AddMessage(messages.Message{Role: "user", Message: "Hello"})
+		cm.AddMessage(messages.Message{Role: "assistant", Message: "Hi!"})
 
 		assert.Len(t, cm.GetMessages(), 2)
 
@@ -50,7 +51,7 @@ func TestDefaultContextManager(t *testing.T) {
 
 		// Add 5 messages
 		for i := 0; i < 5; i++ {
-			cm.AddMessage(Message{Role: "user", Message: "Message " + string(rune(i+'1'))})
+			cm.AddMessage(messages.Message{Role: "user", Message: "Message " + string(rune(i+'1'))})
 		}
 
 		messages := cm.GetMessages()
@@ -68,11 +69,11 @@ func TestDefaultContextManager(t *testing.T) {
 		cm := NewContextManager(config)
 
 		// Add system message
-		cm.AddMessage(Message{Role: "system", Message: "You are a helpful assistant"})
+		cm.AddMessage(messages.Message{Role: "system", Message: "You are a helpful assistant"})
 
 		// Add 4 user messages (should cause trimming)
 		for i := 0; i < 4; i++ {
-			cm.AddMessage(Message{Role: "user", Message: "Message " + string(rune(i+'1'))})
+			cm.AddMessage(messages.Message{Role: "user", Message: "Message " + string(rune(i+'1'))})
 		}
 
 		messages := cm.GetMessages()
@@ -88,10 +89,10 @@ func TestFilteredMessages(t *testing.T) {
 		cm := NewContextManager(DefaultContextConfig())
 
 		// Add messages with varying lengths
-		cm.AddMessage(Message{Role: "system", Message: "Short"})                                               // ~5 chars
-		cm.AddMessage(Message{Role: "user", Message: "This is a longer message"})                              // ~24 chars
-		cm.AddMessage(Message{Role: "assistant", Message: "This is an even longer message with more content"}) // ~47 chars
-		cm.AddMessage(Message{Role: "user", Message: "Short"})                                                 // ~5 chars
+		cm.AddMessage(messages.Message{Role: "system", Message: "Short"})                                               // ~5 chars
+		cm.AddMessage(messages.Message{Role: "user", Message: "This is a longer message"})                              // ~24 chars
+		cm.AddMessage(messages.Message{Role: "assistant", Message: "This is an even longer message with more content"}) // ~47 chars
+		cm.AddMessage(messages.Message{Role: "user", Message: "Short"})                                                 // ~5 chars
 
 		// Request filtered messages with small token limit
 		// Using 10 tokens = ~40 chars
@@ -119,7 +120,7 @@ func TestTokenCount(t *testing.T) {
 
 		// Add a message with known character count
 		message := "This is exactly forty characters long!!" // 40 chars
-		cm.AddMessage(Message{Role: "user", Message: message})
+		cm.AddMessage(messages.Message{Role: "user", Message: message})
 
 		count, err := cm.GetTokenCount("gpt-3.5-turbo")
 		require.NoError(t, err)
@@ -132,7 +133,7 @@ func TestTokenCount(t *testing.T) {
 func TestMemoryStorage(t *testing.T) {
 	t.Run("Save and Load", func(t *testing.T) {
 		storage := NewMemoryStorage()
-		messages := []Message{
+		messages := []messages.Message{
 			{Role: "user", Message: "Hello"},
 			{Role: "assistant", Message: "Hi there!"},
 		}
@@ -147,7 +148,7 @@ func TestMemoryStorage(t *testing.T) {
 
 	t.Run("Exists and Delete", func(t *testing.T) {
 		storage := NewMemoryStorage()
-		messages := []Message{{Role: "user", Message: "Hello"}}
+		messages := []messages.Message{{Role: "user", Message: "Hello"}}
 
 		assert.False(t, storage.Exists("session1"))
 
@@ -173,7 +174,7 @@ func TestFileStorage(t *testing.T) {
 
 	t.Run("Save and Load", func(t *testing.T) {
 		storage := NewFileStorage(tempDir)
-		messages := []Message{
+		messages := []messages.Message{
 			{Role: "user", Message: "Hello"},
 			{Role: "assistant", Message: "Hi there!"},
 		}
@@ -191,7 +192,7 @@ func TestFileStorage(t *testing.T) {
 
 	t.Run("Delete", func(t *testing.T) {
 		storage := NewFileStorage(tempDir)
-		messages := []Message{{Role: "user", Message: "Hello"}}
+		messages := []messages.Message{{Role: "user", Message: "Hello"}}
 
 		storage.Save("session2", messages)
 		assert.True(t, storage.Exists("session2"))
@@ -213,7 +214,7 @@ func TestFileStorage(t *testing.T) {
 		nestedDir := filepath.Join(tempDir, "nested", "directory")
 		storage := NewFileStorage(nestedDir)
 
-		messages := []Message{{Role: "user", Message: "Hello"}}
+		messages := []messages.Message{{Role: "user", Message: "Hello"}}
 		err := storage.Save("session3", messages)
 		require.NoError(t, err)
 
@@ -235,22 +236,22 @@ func TestContextCompression(t *testing.T) {
 		cm := NewContextManager(config)
 
 		// Add system message
-		cm.AddMessage(Message{Role: "system", Message: "You are a helpful assistant"})
+		cm.AddMessage(messages.Message{Role: "system", Message: "You are a helpful assistant"})
 
 		// Add several user/assistant messages
-		cm.AddMessage(Message{Role: "user", Message: "What is the weather?"})
-		cm.AddMessage(Message{Role: "assistant", Message: "I don't have access to weather data."})
-		cm.AddMessage(Message{Role: "user", Message: "What is 2+2?"})
-		cm.AddMessage(Message{Role: "assistant", Message: "2+2 equals 4."})
-		cm.AddMessage(Message{Role: "user", Message: "Tell me a joke"})
-		cm.AddMessage(Message{Role: "assistant", Message: "Why did the chicken cross the road?"})
+		cm.AddMessage(messages.Message{Role: "user", Message: "What is the weather?"})
+		cm.AddMessage(messages.Message{Role: "assistant", Message: "I don't have access to weather data."})
+		cm.AddMessage(messages.Message{Role: "user", Message: "What is 2+2?"})
+		cm.AddMessage(messages.Message{Role: "assistant", Message: "2+2 equals 4."})
+		cm.AddMessage(messages.Message{Role: "user", Message: "Tell me a joke"})
+		cm.AddMessage(messages.Message{Role: "assistant", Message: "Why did the chicken cross the road?"})
 
 		// Mock the summarization call
 		mockProvider.EXPECT().Generate(
 			gomock.Any(),
 			gomock.Nil(),
 			gomock.Any(),
-		).Return(&Message{Message: "Previous conversation covered weather inquiry and math question."}, "", nil)
+		).Return(&messages.Message{Message: "Previous conversation covered weather inquiry and math question."}, "", nil)
 
 		err := cm.CompressContext(context.Background(), mockProvider, 1000)
 		require.NoError(t, err)

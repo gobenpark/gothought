@@ -1,4 +1,4 @@
-package gothought
+package providers
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/tool"
 )
 
@@ -42,8 +43,6 @@ type GeminiProvider struct {
 	temperature float32
 }
 
-var _ Provider = (*GeminiProvider)(nil)
-
 // NewGeminiProvider 생성자 수정
 func NewGeminiProvider(model string, options ...ProviderOption) *GeminiProvider {
 	provider := &GeminiProvider{
@@ -59,10 +58,10 @@ func NewGeminiProvider(model string, options ...ProviderOption) *GeminiProvider 
 	return provider
 }
 
-func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Tool, messages []Message) (*Message, string, error) {
+func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 
 	content := ""
-	for _, msg := range messages {
+	for _, msg := range msgs {
 		content += msg.Message + "\n"
 	}
 
@@ -120,7 +119,7 @@ func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Too
 		return nil, "", fmt.Errorf("empty response from Gemini API")
 	}
 
-	return &Message{
+	return &messages.Message{
 		Role:    "assistant",
 		Message: generativeContent.Candidates[0].Content.Parts[0].Text,
 	}, "stop", nil

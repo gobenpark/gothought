@@ -3,12 +3,10 @@ package gothought
 import (
 	"context"
 
+	"github.com/gobenpark/gothought/errors"
+	"github.com/gobenpark/gothought/messages"
+	"github.com/gobenpark/gothought/providers"
 	"github.com/gobenpark/gothought/tool"
-)
-
-const (
-	FinishReasonStop      = "stop"
-	FinishReasonToolCalls = "tool_calls"
 )
 
 type LanguageModel struct {
@@ -40,7 +38,7 @@ func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
 // SetPrompts replaces the entire conversation history with a new set of messages.
 // This allows for completely resetting or initializing the conversation context
 // with predefined messages of various roles (system, user, AI, etc.).
-func (l *LanguageModel) SetPrompts(prompts []Message) {
+func (l *LanguageModel) SetPrompts(prompts []messages.Message) {
 	l.contextManager.Clear()
 	for _, msg := range prompts {
 		l.contextManager.AddMessage(msg)
@@ -59,7 +57,7 @@ func (l *LanguageModel) AddTool(t tool.Tool) *LanguageModel {
 // It appends a new message with the "system" role to the client's message list.
 // System messages are typically used to set the behavior of the language model.
 func (l *LanguageModel) SystemPrompt(prompt string) *LanguageModel {
-	msg := Message{
+	msg := messages.Message{
 		Role:    "system",
 		Message: prompt,
 	}
@@ -77,7 +75,7 @@ func (l *LanguageModel) SystemPrompt(prompt string) *LanguageModel {
 func (l *LanguageModel) SystemPromptTemplate(template *PromptTemplate, data interface{}) *LanguageModel {
 	prompt, err := template.Execute(data)
 	if err != nil {
-		l.contextManager.AddMessage(Message{
+		l.contextManager.AddMessage(messages.Message{
 			Role:    "system",
 			Message: "[TEMPLATE_ERROR]: " + err.Error(),
 		})
@@ -91,7 +89,7 @@ func (l *LanguageModel) SystemPromptTemplate(template *PromptTemplate, data inte
 func (l *LanguageModel) SystemPromptf(templateStr string, data interface{}) *LanguageModel {
 	template, err := NewPromptTemplate("system_inline", templateStr)
 	if err != nil {
-		l.contextManager.AddMessage(Message{
+		l.contextManager.AddMessage(messages.Message{
 			Role:    "system",
 			Message: "[TEMPLATE_ERROR]: " + err.Error(),
 		})
@@ -103,7 +101,7 @@ func (l *LanguageModel) SystemPromptf(templateStr string, data interface{}) *Lan
 // AIPrompt adds an AI-generated message to the conversation.
 // It appends a new message with the "assistant" role to the client's message list.
 func (l *LanguageModel) AIPrompt(prompt string) *LanguageModel {
-	msg := Message{
+	msg := messages.Message{
 		Role:    "assistant",
 		Message: prompt,
 	}
@@ -113,7 +111,7 @@ func (l *LanguageModel) AIPrompt(prompt string) *LanguageModel {
 
 // Prompt adds a custom message to the conversation.
 // It appends the provided message with its specified role to the client's message list.
-func (l *LanguageModel) Prompt(message Message) *LanguageModel {
+func (l *LanguageModel) Prompt(message messages.Message) *LanguageModel {
 	l.contextManager.AddMessage(message)
 	return l
 }
@@ -121,7 +119,7 @@ func (l *LanguageModel) Prompt(message Message) *LanguageModel {
 // HumanPrompt adds a user message to the conversation.
 // It appends a new message with the "user" role to the client's message list.
 func (l *LanguageModel) HumanPrompt(prompt string) *LanguageModel {
-	msg := Message{
+	msg := messages.Message{
 		Role:    "user",
 		Message: prompt,
 	}
@@ -141,7 +139,7 @@ func (l *LanguageModel) HumanPromptTemplate(template *PromptTemplate, data inter
 	if err != nil {
 		// For fluent API, we store the error and continue
 		// The error will be caught during validation in Q() method
-		l.contextManager.AddMessage(Message{
+		l.contextManager.AddMessage(messages.Message{
 			Role:    "user",
 			Message: "[TEMPLATE_ERROR]: " + err.Error(),
 		})
@@ -162,7 +160,7 @@ func (l *LanguageModel) HumanPromptTemplate(template *PromptTemplate, data inter
 func (l *LanguageModel) HumanPromptf(templateStr string, data interface{}) *LanguageModel {
 	template, err := NewPromptTemplate("inline", templateStr)
 	if err != nil {
-		l.contextManager.AddMessage(Message{
+		l.contextManager.AddMessage(messages.Message{
 			Role:    "user",
 			Message: "[TEMPLATE_ERROR]: " + err.Error(),
 		})
@@ -174,79 +172,79 @@ func (l *LanguageModel) HumanPromptf(templateStr string, data interface{}) *Lang
 // Q executes a query to the language model and returns the response.
 // It manages tool calls through multiple iterations if necessary,
 // up to the configured maximum number of iterations.
-func (l *LanguageModel) Q(ctx context.Context) (*Message, error) {
+func (l *LanguageModel) Q(ctx context.Context) (*messages.Message, error) {
 	if ctx == nil {
-		return nil, NewValidationError("context", "context cannot be nil")
+		return nil, errors.NewValidationError("context", "context cannot be nil")
 	}
 
-	messages := l.contextManager.GetMessages()
-	if err := ValidateMessages(messages); err != nil {
+	msgs := l.contextManager.GetMessages()
+	if err := providers.ValidateMessages(msgs); err != nil {
 		return nil, err
 	}
 
 	for i := 0; i < l.maxIterations; i++ {
-		response, finishReason, err := l.provider.Generate(ctx, l.tools, messages)
+		response, finishReason, err := l.provider.Generate(ctx, l.tools, msgs)
 		if err != nil {
-			return nil, NewProviderError("failed to generate response", err).WithContext("iteration", i)
+			return nil, errors.NewProviderError("failed to generate response", err).WithContext("iteration", i)
 		}
 
 		switch finishReason {
-		case FinishReasonStop:
+		case messages.FinishReasonStop:
 			return response, nil
-		case FinishReasonToolCalls:
-			messages = append(messages, *response)
+		case messages.FinishReasonToolCalls:
+			msgs = append(msgs, *response)
 			// Also add the assistant response to context manager
 			l.contextManager.AddMessage(*response)
 
 			for _, tl := range response.ToolCalls {
 				tool, exists := l.tools[tl.Function.Name]
 				if !exists {
-					return nil, NewToolError(tl.Function.Name, "tool not found", nil)
+					return nil, errors.NewToolError(tl.Function.Name, "tool not found", nil)
 				}
 
 				tres, err := tool.Call(ctx, tl.Function.Arguments)
 				if err != nil {
-					return nil, NewToolError(tl.Function.Name, "tool execution failed", err)
+					return nil, errors.NewToolError(tl.Function.Name, "tool execution failed", err)
 				}
-				toolMsg := Message{
+				toolMsg := messages.Message{
 					Role:       "tool",
 					ToolCallID: tl.ID,
 					Message:    tres,
 				}
-				messages = append(messages, toolMsg)
+				msgs = append(msgs, toolMsg)
 				// Also add tool response to context manager
 				l.contextManager.AddMessage(toolMsg)
 			}
 		}
 	}
-	return nil, NewMaxIterationsError(l.maxIterations)
+	return nil, errors.NewMaxIterationsError(l.maxIterations)
 }
 
 // QStream executes a streaming query to the language model.
 // It checks if the provider supports streaming capabilities and
 // processes the response through the provided callback function.
-func (l *LanguageModel) QStream(ctx context.Context, callback func(Message) error) error {
+func (l *LanguageModel) QStream(ctx context.Context, callback func(messages.Message) error) error {
 	if ctx == nil {
-		return NewValidationError("context", "context cannot be nil")
+		return errors.NewValidationError("context", "context cannot be nil")
 	}
 
 	if callback == nil {
-		return NewValidationError("callback", "callback function cannot be nil")
+		return errors.NewValidationError("callback", "callback function cannot be nil")
 	}
 
 	messages := l.contextManager.GetMessages()
-	if err := ValidateMessages(messages); err != nil {
+	if err := providers.ValidateMessages(messages); err != nil {
 		return err
 	}
 
 	if p, ok := any(l.provider).(StreamingCapable); ok {
 		if err := p.GenerateStreaming(ctx, l.tools, messages, callback); err != nil {
-			return NewProviderError("streaming generation failed", err)
+			return errors.NewProviderError("streaming generation failed", err)
 		}
 		return nil
 	}
 
-	return NewProviderError("streaming not supported for this provider", nil)
+	return errors.NewProviderError("streaming not supported for this provider", nil)
 }
 
 // QWith takes a context and an interface object that defines the structure
@@ -255,25 +253,25 @@ func (l *LanguageModel) QStream(ctx context.Context, callback func(Message) erro
 // This is particularly useful for getting structured, type-safe responses from the language model.
 func (o *LanguageModel) QWith(ctx context.Context, oj interface{}) error {
 	if ctx == nil {
-		return NewValidationError("context", "context cannot be nil")
+		return errors.NewValidationError("context", "context cannot be nil")
 	}
 
 	if oj == nil {
-		return NewValidationError("object", "output object cannot be nil")
+		return errors.NewValidationError("object", "output object cannot be nil")
 	}
 
-	messages := o.contextManager.GetMessages()
-	if err := ValidateMessages(messages); err != nil {
+	msgs := o.contextManager.GetMessages()
+	if err := providers.ValidateMessages(msgs); err != nil {
 		return err
 	}
 
-	if len(messages) == 0 {
-		return NewValidationError("messages", "no messages available for structured output")
+	if len(msgs) == 0 {
+		return errors.NewValidationError("messages", "no messages available for structured output")
 	}
 
 	// Create a copy of messages for this specific request
-	msgsCopy := make([]Message, len(messages))
-	copy(msgsCopy, messages)
+	msgsCopy := make([]messages.Message, len(msgs))
+	copy(msgsCopy, msgs)
 
 	// Modify the last message to include schema prompt
 	msgLen := len(msgsCopy)
@@ -281,11 +279,11 @@ func (o *LanguageModel) QWith(ctx context.Context, oj interface{}) error {
 
 	res, _, err := o.provider.Generate(ctx, o.tools, msgsCopy)
 	if err != nil {
-		return NewProviderError("failed to generate structured response", err)
+		return errors.NewProviderError("failed to generate structured response", err)
 	}
 
 	if err := ParsePrompt(oj, res.Message); err != nil {
-		return NewParsingError("failed to parse structured output", err)
+		return errors.NewParsingError("failed to parse structured output", err)
 	}
 	return nil
 }
@@ -342,6 +340,6 @@ func (l *LanguageModel) GetConversationTokenCount(modelName string) (int, error)
 
 // GetOptimizedMessages returns messages optimized for the given token constraints.
 // This method filters and potentially compresses messages to fit within the specified limits.
-func (l *LanguageModel) GetOptimizedMessages(maxTokens int, modelName string) ([]Message, error) {
+func (l *LanguageModel) GetOptimizedMessages(maxTokens int, modelName string) ([]messages.Message, error) {
 	return l.contextManager.GetFilteredMessages(maxTokens, modelName)
 }

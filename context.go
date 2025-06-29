@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/gobenpark/gothought/messages"
 )
 
 const EstimatedCharsPerToken = 4.0 // Roughly 4 characters per token for English text
@@ -13,13 +15,13 @@ const EstimatedCharsPerToken = 4.0 // Roughly 4 characters per token for English
 // ContextManager handles conversation context and memory management
 type ContextManager interface {
 	// AddMessage adds a message to the context
-	AddMessage(message Message) error
+	AddMessage(message messages.Message) error
 
 	// GetMessages returns messages within the context limits
-	GetMessages() []Message
+	GetMessages() []messages.Message
 
 	// GetFilteredMessages returns messages optimized for the given constraints
-	GetFilteredMessages(maxTokens int, modelName string) ([]Message, error)
+	GetFilteredMessages(maxTokens int, modelName string) ([]messages.Message, error)
 
 	// Clear removes all messages from context
 	Clear()
@@ -72,37 +74,37 @@ func DefaultContextConfig() ContextConfig {
 
 // StorageBackend defines persistence interface
 type StorageBackend interface {
-	Save(sessionID string, messages []Message) error
-	Load(sessionID string) ([]Message, error)
+	Save(sessionID string, messages []messages.Message) error
+	Load(sessionID string) ([]messages.Message, error)
 	Delete(sessionID string) error
 	Exists(sessionID string) bool
 }
 
 // MemoryStorage implements in-memory storage
 type MemoryStorage struct {
-	sessions map[string][]Message
+	sessions map[string][]messages.Message
 }
 
 // NewMemoryStorage creates a new in-memory storage backend
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		sessions: make(map[string][]Message),
+		sessions: make(map[string][]messages.Message),
 	}
 }
 
-func (m *MemoryStorage) Save(sessionID string, messages []Message) error {
-	m.sessions[sessionID] = make([]Message, len(messages))
-	copy(m.sessions[sessionID], messages)
+func (m *MemoryStorage) Save(sessionID string, msgs []messages.Message) error {
+	m.sessions[sessionID] = make([]messages.Message, len(msgs))
+	copy(m.sessions[sessionID], msgs)
 	return nil
 }
 
-func (m *MemoryStorage) Load(sessionID string) ([]Message, error) {
-	messages, exists := m.sessions[sessionID]
+func (m *MemoryStorage) Load(sessionID string) ([]messages.Message, error) {
+	msgs, exists := m.sessions[sessionID]
 	if !exists {
 		return nil, fmt.Errorf("session %s not found", sessionID)
 	}
-	result := make([]Message, len(messages))
-	copy(result, messages)
+	result := make([]messages.Message, len(msgs))
+	copy(result, msgs)
 	return result, nil
 }
 
@@ -128,7 +130,7 @@ func NewFileStorage(baseDir string) *FileStorage {
 	}
 }
 
-func (f *FileStorage) Save(sessionID string, messages []Message) error {
+func (f *FileStorage) Save(sessionID string, messages []messages.Message) error {
 	// Ensure base directory exists
 	if err := os.MkdirAll(f.baseDir, 0755); err != nil {
 		return fmt.Errorf("failed to create storage directory: %w", err)
@@ -149,7 +151,7 @@ func (f *FileStorage) Save(sessionID string, messages []Message) error {
 	return nil
 }
 
-func (f *FileStorage) Load(sessionID string) ([]Message, error) {
+func (f *FileStorage) Load(sessionID string) ([]messages.Message, error) {
 	filename := filepath.Join(f.baseDir, sessionID+".json")
 
 	// Check if file exists
@@ -164,7 +166,7 @@ func (f *FileStorage) Load(sessionID string) ([]Message, error) {
 	}
 
 	// Deserialize messages
-	var messages []Message
+	var messages []messages.Message
 	if err := json.Unmarshal(data, &messages); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal messages: %w", err)
 	}
@@ -195,19 +197,19 @@ func (f *FileStorage) Exists(sessionID string) bool {
 // DefaultContextManager implements ContextManager
 type DefaultContextManager struct {
 	config   ContextConfig
-	messages []Message
+	messages []messages.Message
 }
 
 // NewContextManager creates a new context manager with the given configuration
 func NewContextManager(config ContextConfig) *DefaultContextManager {
 	return &DefaultContextManager{
 		config:   config,
-		messages: make([]Message, 0),
+		messages: make([]messages.Message, 0),
 	}
 }
 
 // AddMessage implements ContextManager.AddMessage
-func (cm *DefaultContextManager) AddMessage(message Message) error {
+func (cm *DefaultContextManager) AddMessage(message messages.Message) error {
 	cm.messages = append(cm.messages, message)
 
 	// Apply message limit
@@ -219,18 +221,18 @@ func (cm *DefaultContextManager) AddMessage(message Message) error {
 }
 
 // GetMessages implements ContextManager.GetMessages
-func (cm *DefaultContextManager) GetMessages() []Message {
-	result := make([]Message, len(cm.messages))
+func (cm *DefaultContextManager) GetMessages() []messages.Message {
+	result := make([]messages.Message, len(cm.messages))
 	copy(result, cm.messages)
 	return result
 }
 
 // GetFilteredMessages implements ContextManager.GetFilteredMessages
-func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName string) ([]Message, error) {
+func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName string) ([]messages.Message, error) {
 	// Simple token estimation for now
 	// TODO: Integrate with token counting system when available
 	if len(cm.messages) == 0 {
-		return []Message{}, nil
+		return []messages.Message{}, nil
 	}
 
 	// If no token limit specified, use config default
@@ -242,7 +244,7 @@ func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName st
 	// Roughly 4 characters per token for English text
 	estimatedTokensPerChar := 1.0 / EstimatedCharsPerToken
 
-	var result []Message
+	var result []messages.Message
 	var totalChars int
 
 	// Always include system messages if configured
@@ -259,7 +261,7 @@ func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName st
 	nonSystemMessages := cm.getNonSystemMessages()
 
 	// Build a temporary slice of selected messages in reverse order
-	var selectedMessages []Message
+	var selectedMessages []messages.Message
 	for i := len(nonSystemMessages) - 1; i >= 0; i-- {
 		msg := nonSystemMessages[i]
 		msgChars := len(msg.Message)
@@ -282,7 +284,7 @@ func (cm *DefaultContextManager) GetFilteredMessages(maxTokens int, modelName st
 
 // Clear implements ContextManager.Clear
 func (cm *DefaultContextManager) Clear() {
-	cm.messages = make([]Message, 0)
+	cm.messages = make([]messages.Message, 0)
 }
 
 // CompressContext implements ContextManager.CompressContext
@@ -292,8 +294,8 @@ func (cm *DefaultContextManager) CompressContext(ctx context.Context, provider P
 	}
 
 	// Find messages to compress (exclude system and recent messages)
-	var toCompress []Message
-	var toKeep []Message
+	var toCompress []messages.Message
+	var toKeep []messages.Message
 
 	recentStart := len(cm.messages) - cm.config.PreserveRecentMessages
 
@@ -318,7 +320,7 @@ func (cm *DefaultContextManager) CompressContext(ctx context.Context, provider P
 	}
 
 	// Replace compressed messages with summary
-	var newMessages []Message
+	var newMessages []messages.Message
 
 	// Add system messages first
 	for _, msg := range toKeep {
@@ -328,7 +330,7 @@ func (cm *DefaultContextManager) CompressContext(ctx context.Context, provider P
 	}
 
 	// Add compression summary
-	newMessages = append(newMessages, Message{
+	newMessages = append(newMessages, messages.Message{
 		Role:    "system",
 		Message: fmt.Sprintf("Previous conversation summary: %s", summary),
 	})
@@ -380,8 +382,8 @@ func (cm *DefaultContextManager) trimToMessageLimit() {
 	}
 
 	// Keep system messages and recent messages
-	var systemMessages []Message
-	var otherMessages []Message
+	var systemMessages []messages.Message
+	var otherMessages []messages.Message
 
 	for _, msg := range cm.messages {
 		if msg.Role == "system" && cm.config.PreserveSystemMessages {
@@ -406,8 +408,8 @@ func (cm *DefaultContextManager) trimToMessageLimit() {
 	cm.messages = append(systemMessages, otherMessages...)
 }
 
-func (cm *DefaultContextManager) getNonSystemMessages() []Message {
-	var result []Message
+func (cm *DefaultContextManager) getNonSystemMessages() []messages.Message {
+	var result []messages.Message
 	for _, msg := range cm.messages {
 		if msg.Role != "system" {
 			result = append(result, msg)
@@ -416,19 +418,19 @@ func (cm *DefaultContextManager) getNonSystemMessages() []Message {
 	return result
 }
 
-func (cm *DefaultContextManager) createCompressionSummary(ctx context.Context, provider Provider, messages []Message) (string, error) {
-	if len(messages) == 0 {
+func (cm *DefaultContextManager) createCompressionSummary(ctx context.Context, provider Provider, msgs []messages.Message) (string, error) {
+	if len(msgs) == 0 {
 		return "", nil
 	}
 
 	// Create a temporary conversation for summarization
 	var conversationText string
-	for _, msg := range messages {
+	for _, msg := range msgs {
 		conversationText += fmt.Sprintf("%s: %s\n", msg.Role, msg.Message)
 	}
 
 	// Create summarization prompt
-	summaryMessages := []Message{
+	summaryMessages := []messages.Message{
 		{
 			Role:    "system",
 			Message: "Summarize the following conversation concisely, preserving key information and context:",

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	messages "github.com/gobenpark/gothought/messages"
 	tool "github.com/gobenpark/gothought/tool"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,19 +43,19 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // Generate mocks base method.
-func (m *MockProvider) Generate(ctx context.Context, tools map[string]tool.Tool, messages []Message) (*Message, string, error) {
+func (m *MockProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Generate", ctx, tools, messages)
-	ret0, _ := ret[0].(*Message)
+	ret := m.ctrl.Call(m, "Generate", ctx, tools, msgs)
+	ret0, _ := ret[0].(*messages.Message)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
 // Generate indicates an expected call of Generate.
-func (mr *MockProviderMockRecorder) Generate(ctx, tools, messages any) *gomock.Call {
+func (mr *MockProviderMockRecorder) Generate(ctx, tools, msgs any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generate", reflect.TypeOf((*MockProvider)(nil).Generate), ctx, tools, messages)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generate", reflect.TypeOf((*MockProvider)(nil).Generate), ctx, tools, msgs)
 }
 
 // MockStreamingCapable is a mock of StreamingCapable interface.
@@ -82,15 +83,15 @@ func (m *MockStreamingCapable) EXPECT() *MockStreamingCapableMockRecorder {
 }
 
 // GenerateStreaming mocks base method.
-func (m *MockStreamingCapable) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, messages []Message, callback func(Message) error) error {
+func (m *MockStreamingCapable) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(messages.Message) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateStreaming", ctx, tools, messages, callback)
+	ret := m.ctrl.Call(m, "GenerateStreaming", ctx, tools, msgs, callback)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // GenerateStreaming indicates an expected call of GenerateStreaming.
-func (mr *MockStreamingCapableMockRecorder) GenerateStreaming(ctx, tools, messages, callback any) *gomock.Call {
+func (mr *MockStreamingCapableMockRecorder) GenerateStreaming(ctx, tools, msgs, callback any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateStreaming", reflect.TypeOf((*MockStreamingCapable)(nil).GenerateStreaming), ctx, tools, messages, callback)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateStreaming", reflect.TypeOf((*MockStreamingCapable)(nil).GenerateStreaming), ctx, tools, msgs, callback)
 }

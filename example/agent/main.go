@@ -1,9 +1,12 @@
 package main
 
-import "github.com/gobenpark/gothought"
+import (
+	"github.com/gobenpark/gothought"
+	"github.com/gobenpark/gothought/providers"
+)
 
 func main() {
 
-	gothought.NewLanguageModel(gothought.NewOpenAIProvider("chatgpt-4o-mini"))
+	gothought.NewLanguageModel(providers.NewOpenAIProvider("chatgpt-4o-mini"))
 
 }

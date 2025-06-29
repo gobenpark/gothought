@@ -1,4 +1,4 @@
-package gothought
+package providers
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gobenpark/gothought/messages"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,7 @@ func TestOllamaProvider_Integration(t *testing.T) {
 	// Test with default localhost:11434
 	provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 
-	messages := []Message{
+	messages := []messages.Message{
 		{
 			Role:    "user",
 			Message: "Hello! Please respond with just 'Hi there!' for this test.",
@@ -51,12 +52,12 @@ func TestOllamaProvider_MessageConversion(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    []Message
+		input    []messages.Message
 		expected []OllamaMessage
 	}{
 		{
 			name: "basic user message",
-			input: []Message{
+			input: []messages.Message{
 				{Role: "user", Message: "Hello"},
 			},
 			expected: []OllamaMessage{
@@ -65,7 +66,7 @@ func TestOllamaProvider_MessageConversion(t *testing.T) {
 		},
 		{
 			name: "system and user messages",
-			input: []Message{
+			input: []messages.Message{
 				{Role: "system", Message: "You are a helpful assistant"},
 				{Role: "user", Message: "Hello"},
 			},
@@ -76,7 +77,7 @@ func TestOllamaProvider_MessageConversion(t *testing.T) {
 		},
 		{
 			name: "role mapping",
-			input: []Message{
+			input: []messages.Message{
 				{Role: "AI", Message: "AI response"},
 				{Role: "assistant", Message: "Assistant response"},
 				{Role: "human", Message: "Human message"},
@@ -106,7 +107,7 @@ func TestOllamaProvider_Streaming(t *testing.T) {
 
 	provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
 
-	messages := []Message{
+	msgs := []messages.Message{
 		{
 			Role:    "user",
 			Message: "Count from 1 to 3. Respond with just the numbers.",
@@ -114,14 +115,14 @@ func TestOllamaProvider_Streaming(t *testing.T) {
 	}
 
 	var responses []string
-	callback := func(message Message) error {
+	callback := func(message messages.Message) error {
 		responses = append(responses, message.Message)
 		t.Logf("Streaming chunk: %s", message.Message)
 		return nil
 	}
 
 	ctx := context.Background()
-	err := provider.GenerateStreaming(ctx, nil, messages, callback)
+	err := provider.GenerateStreaming(ctx, nil, msgs, callback)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, responses)
@@ -138,7 +139,7 @@ func TestOllamaProvider_Streaming(t *testing.T) {
 func TestOllamaProvider_Validation(t *testing.T) {
 	t.Run("empty model", func(t *testing.T) {
 		provider := NewOllamaProvider("")
-		_, _, err := provider.Generate(context.Background(), nil, []Message{
+		_, _, err := provider.Generate(context.Background(), nil, []messages.Message{
 			{Role: "user", Message: "test"},
 		})
 		require.Error(t, err)
@@ -147,7 +148,7 @@ func TestOllamaProvider_Validation(t *testing.T) {
 
 	t.Run("nil callback for streaming", func(t *testing.T) {
 		provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
-		err := provider.GenerateStreaming(context.Background(), nil, []Message{
+		err := provider.GenerateStreaming(context.Background(), nil, []messages.Message{
 			{Role: "user", Message: "test"},
 		}, nil)
 		require.Error(t, err)
@@ -156,7 +157,7 @@ func TestOllamaProvider_Validation(t *testing.T) {
 
 	t.Run("invalid messages", func(t *testing.T) {
 		provider := NewOllamaProvider("gemma3", WithTemperature(0.7))
-		_, _, err := provider.Generate(context.Background(), nil, []Message{
+		_, _, err := provider.Generate(context.Background(), nil, []messages.Message{
 			{Role: "invalid", Message: "test"},
 		})
 		require.Error(t, err)

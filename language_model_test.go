@@ -7,6 +7,8 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/gobenpark/gothought/messages"
+	"github.com/gobenpark/gothought/providers"
 	"github.com/gobenpark/gothought/tool"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -23,7 +25,7 @@ func TestOpenAI(t *testing.T) {
 		t.Skip("BRAVE_API_KEY not set, skipping integration test")
 	}
 
-	op := NewOpenAIProvider("gpt-4o-mini", WithAPIKey(apiKey), WithTemperature(0.7))
+	op := providers.NewOpenAIProvider("gpt-4o-mini", providers.WithAPIKey(apiKey), providers.WithTemperature(0.7))
 	cli := NewLanguageModel(op, WithIteration(10))
 
 	cli.AddTool(tool.NewBraveSearchTool(braveAPIKey))
@@ -175,7 +177,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 		template, err := NewPromptTemplate("greeting", "Hello {{.Name}}, you are a {{.Role}}")
 		require.NoError(t, err)
 
-		expectedMessages := []Message{
+		expectedMessages := []messages.Message{
 			{
 				Role:    "user",
 				Message: "Hello Alice, you are a developer",
@@ -183,7 +185,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 		}
 
 		mockProvider.EXPECT().Generate(gomock.Any(), gomock.Any(), expectedMessages).Return(
-			&Message{Role: "assistant", Message: "Hi Alice!"},
+			&messages.Message{Role: "assistant", Message: "Hi Alice!"},
 			"stop",
 			nil,
 		)
@@ -200,7 +202,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 		template, err := NewPromptTemplate("system", "You are a {{.Role}} assistant")
 		require.NoError(t, err)
 
-		expectedMessages := []Message{
+		expectedMessages := []messages.Message{
 			{
 				Role:    "system",
 				Message: "You are a helpful assistant",
@@ -212,7 +214,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 		}
 
 		mockProvider.EXPECT().Generate(gomock.Any(), gomock.Any(), expectedMessages).Return(
-			&Message{Role: "assistant", Message: "Hello there!"},
+			&messages.Message{Role: "assistant", Message: "Hello there!"},
 			"stop",
 			nil,
 		)
@@ -229,7 +231,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 	})
 
 	t.Run("HumanPromptf convenience method", func(t *testing.T) {
-		expectedMessages := []Message{
+		expectedMessages := []messages.Message{
 			{
 				Role:    "user",
 				Message: "Hello Bob, you are 30 years old",
@@ -237,7 +239,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 		}
 
 		mockProvider.EXPECT().Generate(gomock.Any(), gomock.Any(), expectedMessages).Return(
-			&Message{Role: "assistant", Message: "Nice to meet you!"},
+			&messages.Message{Role: "assistant", Message: "Nice to meet you!"},
 			"stop",
 			nil,
 		)
@@ -251,7 +253,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 	})
 
 	t.Run("SystemPromptf convenience method", func(t *testing.T) {
-		expectedMessages := []Message{
+		expectedMessages := []messages.Message{
 			{
 				Role:    "system",
 				Message: "You are a coding assistant",
@@ -259,7 +261,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 		}
 
 		mockProvider.EXPECT().Generate(gomock.Any(), gomock.Any(), expectedMessages).Return(
-			&Message{Role: "assistant", Message: "Ready to help!"},
+			&messages.Message{Role: "assistant", Message: "Ready to help!"},
 			"stop",
 			nil,
 		)
@@ -273,7 +275,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 	})
 
 	t.Run("template error handling", func(t *testing.T) {
-		expectedMessages := []Message{
+		expectedMessages := []messages.Message{
 			{
 				Role:    "user",
 				Message: "Hello Test, <no value>",
@@ -281,7 +283,7 @@ func TestLanguageModel_TemplateIntegration(t *testing.T) {
 		}
 
 		mockProvider.EXPECT().Generate(gomock.Any(), gomock.Any(), expectedMessages).Return(
-			&Message{Role: "assistant", Message: "Error handled"},
+			&messages.Message{Role: "assistant", Message: "Error handled"},
 			"stop",
 			nil,
 		)
@@ -300,7 +302,7 @@ func TestOpenAIProvider_Generate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	op := NewMockProvider(ctrl)
 
-	expectOpenAIMessage := []Message{
+	expectOpenAIMessage := []messages.Message{
 		{
 			Role:    "system",
 			Message: "you are a ai",
@@ -311,7 +313,7 @@ func TestOpenAIProvider_Generate(t *testing.T) {
 		},
 	}
 
-	op.EXPECT().Generate(gomock.Any(), gomock.Any(), expectOpenAIMessage).Return(&Message{
+	op.EXPECT().Generate(gomock.Any(), gomock.Any(), expectOpenAIMessage).Return(&messages.Message{
 		Role:    "assistant",
 		Message: "time is 00:00",
 	}, "stop", nil)

@@ -1,16 +1,18 @@
-package gothought
+package providers
 
 import (
 	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
+	errs "errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
+	"github.com/gobenpark/gothought/errors"
+	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/tool"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -29,19 +31,10 @@ type OpenAIBody struct {
 }
 
 type OpenAIMessage struct {
-	Role       string      `json:"role"`
-	Content    string      `json:"content"`
-	ToolCallID string      `json:"tool_call_id"`
-	ToolCalls  []ToolCalls `json:"tool_calls"`
-}
-
-type ToolCalls struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
+	Role       string               `json:"role"`
+	Content    string               `json:"content"`
+	ToolCallID string               `json:"tool_call_id"`
+	ToolCalls  []messages.ToolCalls `json:"tool_calls"`
 }
 
 type OpenAIResponse struct {
@@ -87,8 +80,6 @@ type OpenAIProvider struct {
 	timeoutConfig TimeoutConfig
 }
 
-var _ Provider = (*OpenAIProvider)(nil)
-
 func NewOpenAIProvider(model string, options ...ProviderOption) *OpenAIProvider {
 	provider := &OpenAIProvider{
 		model:         model,
@@ -115,10 +106,10 @@ func (o *OpenAIProvider) WithTimeoutConfig(config TimeoutConfig) *OpenAIProvider
 	return o
 }
 
-func (o *OpenAIProvider) generateBody(tools map[string]tool.Tool, messages []Message, stream bool) OpenAIBody {
+func (o *OpenAIProvider) generateBody(tools map[string]tool.Tool, msgs []messages.Message, stream bool) OpenAIBody {
 	body := OpenAIBody{
 		Model: o.model,
-		Messages: lo.Map(messages, func(item Message, index int) OpenAIMessage {
+		Messages: lo.Map(msgs, func(item messages.Message, index int) OpenAIMessage {
 			msg := OpenAIMessage{
 				Role:       item.Role,
 				Content:    item.Message,
@@ -149,7 +140,7 @@ func (o *OpenAIProvider) generateBody(tools map[string]tool.Tool, messages []Mes
 	return body
 }
 
-func (o *OpenAIProvider) Generate(ctx context.Context, tools map[string]tool.Tool, messages []Message) (*Message, string, error) {
+func (o *OpenAIProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	if err := ValidateProviderConfig(ProviderConfig{
 		Model:       o.model,
 		APIKey:      o.apiKey,
@@ -162,12 +153,12 @@ func (o *OpenAIProvider) Generate(ctx context.Context, tools map[string]tool.Too
 	defer cancel()
 
 	type ProviderResult struct {
-		Message      *Message
+		Message      *messages.Message
 		FinishReason string
 	}
 
 	result, err := WithRetry(timeoutCtx, o.retryConfig, func(retryCtx context.Context) (ProviderResult, error) {
-		message, finishReason, err := o.generateWithoutRetry(retryCtx, tools, messages)
+		message, finishReason, err := o.generateWithoutRetry(retryCtx, tools, msgs)
 		if err != nil {
 			return ProviderResult{}, err
 		}
@@ -181,18 +172,18 @@ func (o *OpenAIProvider) Generate(ctx context.Context, tools map[string]tool.Too
 	return result.Message, result.FinishReason, nil
 }
 
-func (o *OpenAIProvider) generateWithoutRetry(ctx context.Context, tools map[string]tool.Tool, messages []Message) (*Message, string, error) {
-	body := o.generateBody(tools, messages, false)
+func (o *OpenAIProvider) generateWithoutRetry(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+	body := o.generateBody(tools, msgs, false)
 
 	bt, err := json.MarshalIndent(body, "", "\t")
 	if err != nil {
-		return nil, "", NewProviderError("failed to marshal request body", err)
+		return nil, "", errors.NewProviderError("failed to marshal request body", err)
 	}
 	fmt.Println(string(bt))
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(bt))
 	if err != nil {
-		return nil, "", NewNetworkError("failed to create HTTP request", err, 0)
+		return nil, "", errors.NewNetworkError("failed to create HTTP request", err, 0)
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -200,33 +191,33 @@ func (o *OpenAIProvider) generateWithoutRetry(ctx context.Context, tools map[str
 
 	res, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, "", NewNetworkError("HTTP request failed", err, 0)
+		return nil, "", errors.NewNetworkError("HTTP request failed", err, 0)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode == 429 {
 		buf := bytes.Buffer{}
 		io.Copy(&buf, res.Body)
-		return nil, "", NewRateLimitError("rate limit exceeded", 60)
+		return nil, "", errors.NewRateLimitError("rate limit exceeded", 60)
 	}
 
 	if res.StatusCode != 200 {
 		buf := bytes.Buffer{}
 		if _, err := io.Copy(&buf, res.Body); err != nil {
-			return nil, "", NewNetworkError("failed to read error response", err, res.StatusCode)
+			return nil, "", errors.NewNetworkError("failed to read error response", err, res.StatusCode)
 		}
-		return nil, "", NewNetworkError("API request failed", errors.New(buf.String()), res.StatusCode)
+		return nil, "", errors.NewNetworkError("API request failed", errs.New(buf.String()), res.StatusCode)
 	}
 
 	buf := &bytes.Buffer{}
 	if _, err := io.Copy(buf, res.Body); err != nil {
-		return nil, "", NewNetworkError("failed to read response body", err, res.StatusCode)
+		return nil, "", errors.NewNetworkError("failed to read response body", err, res.StatusCode)
 	}
 
 	re := gjson.ParseBytes(buf.Bytes())
 
 	if !re.Get("choices").Exists() {
-		return nil, "", NewParsingError("no choices in response", nil)
+		return nil, "", errors.NewParsingError("no choices in response", nil)
 	}
 
 	for _, choice := range re.Get("choices").Array() {
@@ -235,23 +226,23 @@ func (o *OpenAIProvider) generateWithoutRetry(ctx context.Context, tools map[str
 		switch finishReason {
 		case "stop":
 			content := choice.Get("message.content").String()
-			return &Message{
+			return &messages.Message{
 				Message: content,
-			}, FinishReasonStop, nil
+			}, messages.FinishReasonStop, nil
 
 		case "tool_calls":
-			assistantMessage := Message{
+			assistantMessage := messages.Message{
 				Role: "assistant",
 			}
-			toolCalls := []ToolCalls{}
+			toolCalls := []messages.ToolCalls{}
 
 			toolCallsArray := choice.Get("message.tool_calls").Array()
 			if len(toolCallsArray) == 0 {
-				return nil, "", NewParsingError("tool_calls finish reason but no tool calls found", nil)
+				return nil, "", errors.NewParsingError("tool_calls finish reason but no tool calls found", nil)
 			}
 
 			for _, toolItem := range toolCallsArray {
-				toolCall := ToolCalls{
+				toolCall := messages.ToolCalls{
 					ID:   toolItem.Get("id").String(),
 					Type: toolItem.Get("type").String(),
 				}
@@ -259,25 +250,25 @@ func (o *OpenAIProvider) generateWithoutRetry(ctx context.Context, tools map[str
 				toolCall.Function.Arguments = toolItem.Get("function.arguments").String()
 
 				if toolCall.ID == "" || toolCall.Function.Name == "" {
-					return nil, "", NewParsingError("invalid tool call format", nil)
+					return nil, "", errors.NewParsingError("invalid tool call format", nil)
 				}
 
 				toolCalls = append(toolCalls, toolCall)
 			}
 			assistantMessage.ToolCalls = toolCalls
 
-			return &assistantMessage, FinishReasonToolCalls, nil
+			return &assistantMessage, messages.FinishReasonToolCalls, nil
 
 		case "length":
-			return nil, "", NewProviderError("response truncated due to length limit", nil)
+			return nil, "", errors.NewProviderError("response truncated due to length limit", nil)
 		case "content_filter":
-			return nil, "", NewProviderError("response blocked by content filter", nil)
+			return nil, "", errors.NewProviderError("response blocked by content filter", nil)
 		}
 	}
-	return nil, "", NewParsingError("unexpected response format", nil)
+	return nil, "", errors.NewParsingError("unexpected response format", nil)
 }
 
-func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, messages []Message, callback func(message Message) error) error {
+func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(message messages.Message) error) error {
 	if err := ValidateProviderConfig(ProviderConfig{
 		Model:       o.model,
 		APIKey:      o.apiKey,
@@ -286,16 +277,16 @@ func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string
 		return err
 	}
 
-	body := o.generateBody(tools, messages, true)
+	body := o.generateBody(tools, msgs, true)
 
 	bt, err := json.Marshal(body)
 	if err != nil {
-		return NewProviderError("failed to marshal streaming request body", err)
+		return errors.NewProviderError("failed to marshal streaming request body", err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(bt))
 	if err != nil {
-		return NewNetworkError("failed to create streaming HTTP request", err, 0)
+		return errors.NewNetworkError("failed to create streaming HTTP request", err, 0)
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -303,18 +294,18 @@ func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string
 
 	res, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return NewNetworkError("streaming HTTP request failed", err, 0)
+		return errors.NewNetworkError("streaming HTTP request failed", err, 0)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode == 429 {
 		bodyBytes, _ := io.ReadAll(res.Body)
-		return NewRateLimitError("streaming rate limit exceeded", 60).WithContext("response_body", string(bodyBytes))
+		return errors.NewRateLimitError("streaming rate limit exceeded", 60).WithContext("response_body", string(bodyBytes))
 	}
 
 	if res.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(res.Body)
-		return NewNetworkError("streaming API request failed", fmt.Errorf("status: %d, body: %s", res.StatusCode, string(bodyBytes)), res.StatusCode)
+		return errors.NewNetworkError("streaming API request failed", fmt.Errorf("status: %d, body: %s", res.StatusCode, string(bodyBytes)), res.StatusCode)
 	}
 
 	reader := bufio.NewReader(res.Body)
@@ -325,7 +316,7 @@ func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string
 			if err == io.EOF {
 				break
 			}
-			return NewNetworkError("failed to read streaming response", err, 0)
+			return errors.NewNetworkError("failed to read streaming response", err, 0)
 		}
 
 		line = bytes.TrimSpace(line)
@@ -349,16 +340,16 @@ func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string
 		}
 
 		if err := json.Unmarshal(data, &chunkResponse); err != nil {
-			return NewParsingError("failed to parse streaming chunk", err).WithContext("chunk_data", string(data))
+			return errors.NewParsingError("failed to parse streaming chunk", err).WithContext("chunk_data", string(data))
 		}
 
 		if len(chunkResponse.Choices) > 0 && chunkResponse.Choices[0].Delta.Content != "" {
-			message := Message{
+			message := messages.Message{
 				Message: chunkResponse.Choices[0].Delta.Content,
 			}
 
 			if err := callback(message); err != nil {
-				return NewProviderError("streaming callback failed", err)
+				return errors.NewProviderError("streaming callback failed", err)
 			}
 		}
 	}
