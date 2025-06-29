@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gobenpark/gothought/messages"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 	"github.com/stretchr/testify/require"
 )
 
@@ -199,7 +199,7 @@ func TestCohereProvider_ToolConversion(t *testing.T) {
 	provider := NewCohereProvider("command", WithAPIKey("test-key"))
 
 	// Test with empty tools
-	tools := make(map[string]tool.Tool)
+	tools := make(map[string]tools.Tool)
 	cohereTools := provider.convertToolsToCohere(tools)
 	require.Empty(t, cohereTools)
 

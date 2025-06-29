@@ -13,7 +13,7 @@ import (
 	"github.com/gobenpark/gothought/errors"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers/models"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 )
@@ -107,8 +107,8 @@ func (c *CohereProvider) convertMessagesToCohere(messages []messages.Message) (s
 }
 
 // convertToolsToCohere converts internal tool format to Cohere's tool format
-func (c *CohereProvider) convertToolsToCohere(tools map[string]tool.Tool) []models.CohereTool {
-	return lo.MapToSlice(tools, func(key string, value tool.Tool) models.CohereTool {
+func (c *CohereProvider) convertToolsToCohere(tls map[string]tools.Tool) []models.CohereTool {
+	return lo.MapToSlice(tls, func(key string, value tools.Tool) models.CohereTool {
 		schema := value.ParameterSchema()
 		paramDefs := make(map[string]interface{})
 
@@ -145,7 +145,7 @@ func contains(slice interface{}, item string) bool {
 	return false
 }
 
-func (c *CohereProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (c *CohereProvider) Generate(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	if c.apiKey == "" {
 		return nil, "", errors.NewValidationError("api_key", "COHERE_API_KEY cannot be empty")
 	}
@@ -177,7 +177,7 @@ func (c *CohereProvider) Generate(ctx context.Context, tools map[string]tool.Too
 	return result.Message, result.FinishReason, nil
 }
 
-func (c *CohereProvider) generateWithoutRetry(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (c *CohereProvider) generateWithoutRetry(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	currentMessage, chatHistory := c.convertMessagesToCohere(msgs)
 
 	body := models.CohereChatRequest{
@@ -280,7 +280,7 @@ func (c *CohereProvider) generateWithoutRetry(ctx context.Context, tools map[str
 	}, finishReason, nil
 }
 
-func (c *CohereProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(messages.Message) error) error {
+func (c *CohereProvider) GenerateStreaming(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message, callback func(messages.Message) error) error {
 	if c.apiKey == "" {
 		return errors.NewValidationError("api_key", "COHERE_API_KEY cannot be empty")
 	}

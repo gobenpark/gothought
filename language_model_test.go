@@ -9,7 +9,7 @@ import (
 
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -28,7 +28,7 @@ func TestOpenAI(t *testing.T) {
 	op := providers.NewOpenAIProvider("gpt-4o-mini", providers.WithAPIKey(apiKey), providers.WithTemperature(0.7))
 	cli := NewLanguageModel(op, WithIteration(10))
 
-	cli.AddTool(tool.NewBraveSearchTool(braveAPIKey))
+	cli.AddTool(tools.NewBraveSearchTool(braveAPIKey))
 	result, err := cli.
 		SystemPrompt("you are a web search ai").
 		HumanPrompt(`

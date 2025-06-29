@@ -11,7 +11,7 @@ import (
 
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers/models"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 )
 
 type GeminiProvider struct {
@@ -35,7 +35,7 @@ func NewGeminiProvider(model string, options ...ProviderOption) *GeminiProvider 
 	return provider
 }
 
-func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 
 	content := ""
 	for _, msg := range msgs {

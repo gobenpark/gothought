@@ -14,7 +14,7 @@ import (
 	goErrors "github.com/gobenpark/gothought/errors"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers/models"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 )
@@ -85,8 +85,8 @@ func (o *OpenAIProvider) convertMessages(msgs []messages.Message) []models.OpenA
 	})
 }
 
-func (o *OpenAIProvider) convertTools(tools map[string]tool.Tool) []models.OpenAITool {
-	return lo.MapToSlice(tools, func(key string, value tool.Tool) models.OpenAITool {
+func (o *OpenAIProvider) convertTools(tls map[string]tools.Tool) []models.OpenAITool {
+	return lo.MapToSlice(tls, func(key string, value tools.Tool) models.OpenAITool {
 		return models.OpenAITool{
 			Type: "function",
 			Function: struct {
@@ -102,7 +102,7 @@ func (o *OpenAIProvider) convertTools(tools map[string]tool.Tool) []models.OpenA
 	})
 }
 
-func (o *OpenAIProvider) createRequest(tools map[string]tool.Tool, msgs []messages.Message, stream bool) models.OpenAIRequest {
+func (o *OpenAIProvider) createRequest(tools map[string]tools.Tool, msgs []messages.Message, stream bool) models.OpenAIRequest {
 	request := models.OpenAIRequest{
 		Model:       o.model,
 		Messages:    o.convertMessages(msgs),
@@ -117,7 +117,7 @@ func (o *OpenAIProvider) createRequest(tools map[string]tool.Tool, msgs []messag
 	return request
 }
 
-func (o *OpenAIProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (o *OpenAIProvider) Generate(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	if o.apiKey == "" {
 		return nil, "", goErrors.NewValidationError("api_key", "OPENAI_API_KEY cannot be empty")
 	}
@@ -149,7 +149,7 @@ func (o *OpenAIProvider) Generate(ctx context.Context, tools map[string]tool.Too
 	return result.Message, result.FinishReason, nil
 }
 
-func (o *OpenAIProvider) generateWithoutRetry(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (o *OpenAIProvider) generateWithoutRetry(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	request := o.createRequest(tools, msgs, false)
 
 	resp, err := o.makeAPIRequest(ctx, request)
@@ -279,7 +279,7 @@ func (o *OpenAIProvider) parseToolResponse(choice gjson.Result) (*messages.Messa
 	return &assistantMessage, messages.FinishReasonToolCalls, nil
 }
 
-func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(message messages.Message) error) error {
+func (o *OpenAIProvider) GenerateStreaming(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message, callback func(message messages.Message) error) error {
 	if o.apiKey == "" {
 		return goErrors.NewValidationError("api_key", "OPENAI_API_KEY cannot be empty")
 	}

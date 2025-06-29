@@ -7,11 +7,11 @@ import (
 	"github.com/gobenpark/gothought/memory"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 )
 
 type LanguageModel struct {
-	tools          map[string]tool.Tool
+	tools          map[string]tools.Tool
 	provider       Provider
 	maxIterations  int // maxIterations default int values 10
 	contextManager memory.MemoryManager
@@ -21,7 +21,7 @@ func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
 	cli := &LanguageModel{
 		provider:      p,
 		maxIterations: 10,
-		tools:         map[string]tool.Tool{},
+		tools:         map[string]tools.Tool{},
 	}
 
 	for _, option := range options {
@@ -49,7 +49,7 @@ func (l *LanguageModel) SetPrompts(prompts []messages.Message) {
 // AddTool registers a new tool with the language model.
 // Tools allow the language model to perform actions or access external functionality
 // during the conversation through function calling.
-func (l *LanguageModel) AddTool(t tool.Tool) *LanguageModel {
+func (l *LanguageModel) AddTool(t tools.Tool) *LanguageModel {
 	l.tools[t.Name()] = t
 	return l
 }

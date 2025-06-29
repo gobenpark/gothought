@@ -6,13 +6,13 @@ import (
 	"context"
 
 	"github.com/gobenpark/gothought/messages"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 )
 
 type Provider interface {
-	Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error)
+	Generate(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error)
 }
 
 type StreamingCapable interface {
-	GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(messages.Message) error) error
+	GenerateStreaming(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message, callback func(messages.Message) error) error
 }

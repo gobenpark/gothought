@@ -12,7 +12,7 @@ import (
 	"github.com/gobenpark/gothought/errors"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers/models"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 )
@@ -77,8 +77,8 @@ func (o *OllamaProvider) convertMessagesToOllama(msgs []messages.Message) []mode
 }
 
 // convertToolsToOllama converts internal tool format to Ollama's tool format
-func (o *OllamaProvider) convertToolsToOllama(tools map[string]tool.Tool) []models.OllamaTool {
-	return lo.MapToSlice(tools, func(key string, value tool.Tool) models.OllamaTool {
+func (o *OllamaProvider) convertToolsToOllama(tls map[string]tools.Tool) []models.OllamaTool {
+	return lo.MapToSlice(tls, func(key string, value tools.Tool) models.OllamaTool {
 		return models.OllamaTool{
 			Type: "function",
 			Function: map[string]interface{}{
@@ -90,7 +90,7 @@ func (o *OllamaProvider) convertToolsToOllama(tools map[string]tool.Tool) []mode
 	})
 }
 
-func (o *OllamaProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (o *OllamaProvider) Generate(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	if o.model == "" {
 		return nil, "", errors.NewValidationError("model", "model cannot be empty")
 	}
@@ -122,7 +122,7 @@ func (o *OllamaProvider) Generate(ctx context.Context, tools map[string]tool.Too
 	return result.Message, result.FinishReason, nil
 }
 
-func (o *OllamaProvider) generateWithoutRetry(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (o *OllamaProvider) generateWithoutRetry(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	body := models.OllamaChatRequest{
 		Model:       o.model,
 		Messages:    o.convertMessagesToOllama(msgs),
@@ -192,7 +192,7 @@ func (o *OllamaProvider) generateWithoutRetry(ctx context.Context, tools map[str
 	}, messages.FinishReasonStop, nil
 }
 
-func (o *OllamaProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(messages.Message) error) error {
+func (o *OllamaProvider) GenerateStreaming(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message, callback func(messages.Message) error) error {
 	if o.model == "" {
 		return errors.NewValidationError("model", "model cannot be empty")
 	}

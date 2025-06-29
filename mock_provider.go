@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	messages "github.com/gobenpark/gothought/messages"
-	tool "github.com/gobenpark/gothought/tool"
+	tool "github.com/gobenpark/gothought/tools"
 	gomock "go.uber.org/mock/gomock"
 )
 

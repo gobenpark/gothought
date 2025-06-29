@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/gobenpark/gothought/messages"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,8 +37,8 @@ func TestClaudeProvider_Integration(t *testing.T) {
 			t.Skip("BRAVE_API_KEY not set, skipping tool use test")
 		}
 
-		tools := map[string]tool.Tool{
-			"brave_web_search": tool.NewBraveSearchTool(braveAPIKey),
+		tools := map[string]tools.Tool{
+			"brave_web_search": tools.NewBraveSearchTool(braveAPIKey),
 		}
 
 		msg := []messages.Message{

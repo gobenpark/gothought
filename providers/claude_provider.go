@@ -14,7 +14,7 @@ import (
 	goErrors "github.com/gobenpark/gothought/errors"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers/models"
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/tools"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 )
@@ -125,8 +125,8 @@ func (c *ClaudeProvider) buildToolCallContent(toolCalls []messages.ToolCalls) []
 	return content
 }
 
-func (c *ClaudeProvider) convertTools(tools map[string]tool.Tool) []models.ClaudeTool {
-	return lo.MapToSlice(tools, func(key string, value tool.Tool) models.ClaudeTool {
+func (c *ClaudeProvider) convertTools(tls map[string]tools.Tool) []models.ClaudeTool {
+	return lo.MapToSlice(tls, func(key string, value tools.Tool) models.ClaudeTool {
 		return models.ClaudeTool{
 			Name:        value.Name(),
 			Description: value.Description(),
@@ -135,7 +135,7 @@ func (c *ClaudeProvider) convertTools(tools map[string]tool.Tool) []models.Claud
 	})
 }
 
-func (c *ClaudeProvider) Generate(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (c *ClaudeProvider) Generate(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	if c.apiKey == "" {
 		return nil, "", goErrors.NewValidationError("api_key", "ANTHROPIC_API_KEY cannot be empty")
 	}
@@ -167,7 +167,7 @@ func (c *ClaudeProvider) Generate(ctx context.Context, tools map[string]tool.Too
 	return result.Message, result.FinishReason, nil
 }
 
-func (c *ClaudeProvider) generateWithoutRetry(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message) (*messages.Message, string, error) {
+func (c *ClaudeProvider) generateWithoutRetry(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 	claudeMessages, systemMessage := c.convertMessages(msgs)
 
 	request := models.ClaudeRequest{
@@ -296,7 +296,7 @@ func (c *ClaudeProvider) parseToolResponse(re gjson.Result) (*messages.Message, 
 	return &assistantMessage, messages.FinishReasonToolCalls, nil
 }
 
-func (c *ClaudeProvider) GenerateStreaming(ctx context.Context, tools map[string]tool.Tool, msgs []messages.Message, callback func(message messages.Message) error) error {
+func (c *ClaudeProvider) GenerateStreaming(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message, callback func(message messages.Message) error) error {
 	if c.apiKey == "" {
 		return goErrors.NewValidationError("api_key", "ANTHROPIC_API_KEY cannot be empty")
 	}
