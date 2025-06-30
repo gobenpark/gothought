@@ -1,10 +1,12 @@
-package gothought
+package providers
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/gobenpark/gothought/errors"
+	"github.com/gobenpark/gothought/messages"
 )
 
 var validate *validator.Validate
@@ -16,10 +18,10 @@ func init() {
 }
 
 type ValidatedMessage struct {
-	Role       string      `validate:"required,validrole" json:"role"`
-	Message    string      `validate:"max=50000" json:"message"`
-	ToolCallID string      `json:"tool_call_id,omitempty"`
-	ToolCalls  []ToolCalls `validate:"dive" json:"tool_calls,omitempty"`
+	Role       string               `validate:"required,validrole" json:"role"`
+	Message    string               `validate:"max=50000" json:"message"`
+	ToolCallID string               `json:"tool_call_id,omitempty"`
+	ToolCalls  []messages.ToolCalls `validate:"dive" json:"tool_calls,omitempty"`
 }
 
 type ValidatedToolCall struct {
@@ -84,29 +86,29 @@ func ValidateStruct(s interface{}) error {
 			}
 			validationErrors = append(validationErrors, message)
 		}
-		return NewValidationError("struct", strings.Join(validationErrors, "; "))
+		return errors.NewValidationError("struct", strings.Join(validationErrors, "; "))
 	}
 	return nil
 }
 
 func ValidatePrompt(prompt string) error {
 	if strings.TrimSpace(prompt) == "" {
-		return NewValidationError("prompt", "prompt cannot be empty or whitespace only")
+		return errors.NewValidationError("prompt", "prompt cannot be empty or whitespace only")
 	}
 
 	if len(prompt) > 100000 {
-		return NewValidationError("prompt", "prompt exceeds maximum length of 100,000 characters")
+		return errors.NewValidationError("prompt", "prompt exceeds maximum length of 100,000 characters")
 	}
 
 	return nil
 }
 
-func ValidateMessages(messages []Message) error {
-	if len(messages) == 0 {
-		return NewValidationError("messages", "at least one message is required")
+func ValidateMessages(msgs []messages.Message) error {
+	if len(msgs) == 0 {
+		return errors.NewValidationError("messages", "at least one message is required")
 	}
 
-	for i, msg := range messages {
+	for i, msg := range msgs {
 		validatedMsg := ValidatedMessage{
 			Role:       msg.Role,
 			Message:    msg.Message,
@@ -115,18 +117,18 @@ func ValidateMessages(messages []Message) error {
 		}
 
 		if err := ValidateStruct(validatedMsg); err != nil {
-			if ge, ok := err.(*GothoughtError); ok {
+			if ge, ok := err.(*errors.GothoughtError); ok {
 				return ge.WithContext("message_index", i)
 			}
 			return err
 		}
 
 		if msg.Role == "tool" && strings.TrimSpace(msg.ToolCallID) == "" {
-			return NewValidationError("message.tool_call_id", "tool_call_id is required for tool messages").WithContext("message_index", i)
+			return errors.NewValidationError("message.tool_call_id", "tool_call_id is required for tool messages").WithContext("message_index", i)
 		}
 
 		if strings.TrimSpace(msg.Message) == "" && len(msg.ToolCalls) == 0 {
-			return NewValidationError("message.content", "message must have either content or tool calls").WithContext("message_index", i)
+			return errors.NewValidationError("message.content", "message must have either content or tool calls").WithContext("message_index", i)
 		}
 	}
 

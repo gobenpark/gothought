@@ -1,4 +1,4 @@
-package gothought
+package errors
 
 import (
 	"errors"

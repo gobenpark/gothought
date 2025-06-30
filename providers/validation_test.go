@@ -1,7 +1,10 @@
-package gothought
+package providers
 
 import (
 	"testing"
+
+	"github.com/gobenpark/gothought/errors"
+	"github.com/gobenpark/gothought/messages"
 )
 
 func TestValidatePrompt(t *testing.T) {
@@ -46,7 +49,7 @@ func TestValidatePrompt(t *testing.T) {
 				t.Errorf("Expected error: %v, got error: %v (%v)", tt.shouldError, hasError, err)
 			}
 
-			if hasError && !IsValidationError(err) {
+			if hasError && !errors.IsValidationError(err) {
 				t.Errorf("Expected validation error, got %T", err)
 			}
 		})
@@ -56,12 +59,12 @@ func TestValidatePrompt(t *testing.T) {
 func TestValidateMessages(t *testing.T) {
 	tests := []struct {
 		name        string
-		messages    []Message
+		messages    []messages.Message
 		shouldError bool
 	}{
 		{
 			name: "Valid messages",
-			messages: []Message{
+			messages: []messages.Message{
 				{Role: "user", Message: "Hello"},
 				{Role: "assistant", Message: "Hi there"},
 			},
@@ -69,33 +72,33 @@ func TestValidateMessages(t *testing.T) {
 		},
 		{
 			name:        "Empty messages",
-			messages:    []Message{},
+			messages:    []messages.Message{},
 			shouldError: true,
 		},
 		{
 			name: "Invalid role",
-			messages: []Message{
+			messages: []messages.Message{
 				{Role: "invalid", Message: "Hello"},
 			},
 			shouldError: true,
 		},
 		{
 			name: "Tool message without tool_call_id",
-			messages: []Message{
+			messages: []messages.Message{
 				{Role: "tool", Message: "Result"},
 			},
 			shouldError: true,
 		},
 		{
 			name: "Message without content or tool calls",
-			messages: []Message{
+			messages: []messages.Message{
 				{Role: "user", Message: ""},
 			},
 			shouldError: true,
 		},
 		{
 			name: "Message too long",
-			messages: []Message{
+			messages: []messages.Message{
 				{Role: "user", Message: string(make([]byte, 50001))},
 			},
 			shouldError: true,
@@ -111,7 +114,7 @@ func TestValidateMessages(t *testing.T) {
 				t.Errorf("Expected error: %v, got error: %v (%v)", tt.shouldError, hasError, err)
 			}
 
-			if hasError && !IsValidationError(err) {
+			if hasError && !errors.IsValidationError(err) {
 				t.Errorf("Expected validation error, got %T", err)
 			}
 		})
@@ -180,7 +183,7 @@ func TestValidateProviderConfig(t *testing.T) {
 				t.Errorf("Expected error: %v, got error: %v (%v)", tt.shouldError, hasError, err)
 			}
 
-			if hasError && !IsValidationError(err) {
+			if hasError && !errors.IsValidationError(err) {
 				t.Errorf("Expected validation error, got %T", err)
 			}
 		})
@@ -225,7 +228,7 @@ func TestValidateLanguageModelConfig(t *testing.T) {
 				t.Errorf("Expected error: %v, got error: %v (%v)", tt.shouldError, hasError, err)
 			}
 
-			if hasError && !IsValidationError(err) {
+			if hasError && !errors.IsValidationError(err) {
 				t.Errorf("Expected validation error, got %T", err)
 			}
 		})

@@ -1,4 +1,4 @@
-package gothought
+package providers
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/gobenpark/gothought/messages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func TestGeminiProvider_Generate(t *testing.T) {
 	}
 
 	p := NewGeminiProvider("gemini-2.5-flash", WithAPIKey(apiKey))
-	msgs, content, err := p.Generate(context.TODO(), nil, []Message{
+	msgs, content, err := p.Generate(context.TODO(), nil, []messages.Message{
 		{
 			Role:       "user",
 			ToolCallID: "",
@@ -61,10 +62,6 @@ func TestNewGeminiProvider(t *testing.T) {
 			assert.NotNil(t, provider)
 			assert.Equal(t, tt.wantKey, provider.apiKey)
 			assert.Equal(t, tt.wantModel, provider.model)
-
-			// Provider 인터페이스 구현 확인
-			_, ok := interface{}(provider).(Provider)
-			assert.True(t, ok)
 		})
 	}
 }

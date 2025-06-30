@@ -1,14 +1,15 @@
-package gothought
+package providers
 
 import (
 	"context"
-	"errors"
+	errs "errors"
+	"github.com/gobenpark/gothought/errors"
 	"testing"
 	"time"
 )
 
 func TestIsRetryableError(t *testing.T) {
-	retryableTypes := []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout, ErrorTypeRateLimit}
+	retryableTypes := []errors.ErrorType{errors.ErrorTypeNetwork, errors.ErrorTypeTimeout, errors.ErrorTypeRateLimit}
 
 	tests := []struct {
 		name        string
@@ -17,32 +18,32 @@ func TestIsRetryableError(t *testing.T) {
 	}{
 		{
 			name:        "Network error",
-			err:         NewNetworkError("network failed", nil, 500),
+			err:         errors.NewNetworkError("network failed", nil, 500),
 			shouldRetry: true,
 		},
 		{
 			name:        "Timeout error",
-			err:         NewTimeoutError("timeout", nil),
+			err:         errors.NewTimeoutError("timeout", nil),
 			shouldRetry: true,
 		},
 		{
 			name:        "Rate limit error",
-			err:         NewRateLimitError("rate limited", 60),
+			err:         errors.NewRateLimitError("rate limited", 60),
 			shouldRetry: true,
 		},
 		{
 			name:        "Provider error",
-			err:         NewProviderError("provider failed", nil),
+			err:         errors.NewProviderError("provider failed", nil),
 			shouldRetry: false,
 		},
 		{
 			name:        "Validation error",
-			err:         NewValidationError("field", "invalid"),
+			err:         errors.NewValidationError("field", "invalid"),
 			shouldRetry: false,
 		},
 		{
 			name:        "Regular error",
-			err:         errors.New("regular error"),
+			err:         errs.New("regular error"),
 			shouldRetry: false,
 		},
 	}
@@ -129,7 +130,7 @@ func TestWithRetry(t *testing.T) {
 		config := RetryConfig{
 			MaxAttempts:     3,
 			InitialDelay:    time.Millisecond,
-			RetryableErrors: []ErrorType{ErrorTypeNetwork},
+			RetryableErrors: []errors.ErrorType{errors.ErrorTypeNetwork},
 		}
 
 		attempts := 0
@@ -156,14 +157,14 @@ func TestWithRetry(t *testing.T) {
 		config := RetryConfig{
 			MaxAttempts:     3,
 			InitialDelay:    time.Millisecond,
-			RetryableErrors: []ErrorType{ErrorTypeNetwork},
+			RetryableErrors: []errors.ErrorType{errors.ErrorTypeNetwork},
 		}
 
 		attempts := 0
 		result, err := WithRetry(ctx, config, func(ctx context.Context) (string, error) {
 			attempts++
 			if attempts < 3 {
-				return "", NewNetworkError("network error", nil, 500)
+				return "", errors.NewNetworkError("network error", nil, 500)
 			}
 			return "success", nil
 		})
@@ -186,13 +187,13 @@ func TestWithRetry(t *testing.T) {
 		config := RetryConfig{
 			MaxAttempts:     3,
 			InitialDelay:    time.Millisecond,
-			RetryableErrors: []ErrorType{ErrorTypeNetwork},
+			RetryableErrors: []errors.ErrorType{errors.ErrorTypeNetwork},
 		}
 
 		attempts := 0
 		_, err := WithRetry(ctx, config, func(ctx context.Context) (string, error) {
 			attempts++
-			return "", NewValidationError("field", "invalid")
+			return "", errors.NewValidationError("field", "invalid")
 		})
 
 		if err == nil {
@@ -200,8 +201,8 @@ func TestWithRetry(t *testing.T) {
 		}
 
 		// The error should be the original validation error, not wrapped by retry
-		var ge *GothoughtError
-		if !errors.As(err, &ge) || ge.Type != ErrorTypeValidation {
+		var ge *errors.GothoughtError
+		if !errs.As(err, &ge) || ge.Type != errors.ErrorTypeValidation {
 			var errType string
 			if ge != nil {
 				errType = string(ge.Type)
@@ -221,20 +222,20 @@ func TestWithRetry(t *testing.T) {
 		config := RetryConfig{
 			MaxAttempts:     2,
 			InitialDelay:    time.Millisecond,
-			RetryableErrors: []ErrorType{ErrorTypeNetwork},
+			RetryableErrors: []errors.ErrorType{errors.ErrorTypeNetwork},
 		}
 
 		attempts := 0
 		_, err := WithRetry(ctx, config, func(ctx context.Context) (string, error) {
 			attempts++
-			return "", NewNetworkError("network error", nil, 500)
+			return "", errors.NewNetworkError("network error", nil, 500)
 		})
 
 		if err == nil {
 			t.Error("Expected error")
 		}
 
-		if !IsProviderError(err) {
+		if !errors.IsProviderError(err) {
 			t.Errorf("Expected provider error (retry wrapper), got %T", err)
 		}
 
@@ -256,7 +257,7 @@ func TestDefaultConfigs(t *testing.T) {
 			t.Errorf("Expected InitialDelay 1s, got %v", config.InitialDelay)
 		}
 
-		expectedRetryable := []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout, ErrorTypeRateLimit}
+		expectedRetryable := []errors.ErrorType{errors.ErrorTypeNetwork, errors.ErrorTypeTimeout, errors.ErrorTypeRateLimit}
 		if len(config.RetryableErrors) != len(expectedRetryable) {
 			t.Errorf("Expected %d retryable error types, got %d", len(expectedRetryable), len(config.RetryableErrors))
 		}

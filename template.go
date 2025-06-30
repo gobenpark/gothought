@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"io"
 	"text/template"
+
+	"github.com/gobenpark/gothought/errors"
+	"github.com/gobenpark/gothought/providers"
 )
 
 // PromptTemplate wraps Go's text/template for prompt generation with variable substitution.
@@ -21,17 +24,17 @@ type PromptTemplate struct {
 //
 // Returns an error if the template syntax is invalid.
 func NewPromptTemplate(name, templateStr string) (*PromptTemplate, error) {
-	if err := ValidatePrompt(templateStr); err != nil {
+	if err := providers.ValidatePrompt(templateStr); err != nil {
 		return nil, err
 	}
 
 	if name == "" {
-		return nil, NewValidationError("template_name", "template name cannot be empty")
+		return nil, errors.NewValidationError("template_name", "template name cannot be empty")
 	}
 
 	tmpl, err := template.New(name).Parse(templateStr)
 	if err != nil {
-		return nil, NewValidationError("template_syntax", "invalid template syntax: "+err.Error())
+		return nil, errors.NewValidationError("template_syntax", "invalid template syntax: "+err.Error())
 	}
 
 	return &PromptTemplate{
@@ -51,12 +54,12 @@ func NewPromptTemplate(name, templateStr string) (*PromptTemplate, error) {
 //	}
 //	tmpl, err := NewPromptTemplateWithFuncs("example", "Hello {{upper .Name}}", funcMap)
 func NewPromptTemplateWithFuncs(name, templateStr string, funcMap template.FuncMap) (*PromptTemplate, error) {
-	if err := ValidatePrompt(templateStr); err != nil {
+	if err := providers.ValidatePrompt(templateStr); err != nil {
 		return nil, err
 	}
 
 	if name == "" {
-		return nil, NewValidationError("template_name", "template name cannot be empty")
+		return nil, errors.NewValidationError("template_name", "template name cannot be empty")
 	}
 
 	if funcMap == nil {
@@ -65,7 +68,7 @@ func NewPromptTemplateWithFuncs(name, templateStr string, funcMap template.FuncM
 
 	tmpl, err := template.New(name).Funcs(funcMap).Parse(templateStr)
 	if err != nil {
-		return nil, NewValidationError("template_syntax", "invalid template syntax: "+err.Error())
+		return nil, errors.NewValidationError("template_syntax", "invalid template syntax: "+err.Error())
 	}
 
 	return &PromptTemplate{
@@ -92,7 +95,7 @@ func (pt *PromptTemplate) Execute(data interface{}) (string, error) {
 	var buf bytes.Buffer
 	err := pt.template.Execute(&buf, data)
 	if err != nil {
-		return "", NewValidationError("template_execution", "template execution failed: "+err.Error())
+		return "", errors.NewValidationError("template_execution", "template execution failed: "+err.Error())
 	}
 	return buf.String(), nil
 }
@@ -102,7 +105,7 @@ func (pt *PromptTemplate) Execute(data interface{}) (string, error) {
 func (pt *PromptTemplate) ExecuteToWriter(wr io.Writer, data interface{}) error {
 	err := pt.template.Execute(wr, data)
 	if err != nil {
-		return NewValidationError("template_execution", "template execution failed: "+err.Error())
+		return errors.NewValidationError("template_execution", "template execution failed: "+err.Error())
 	}
 	return nil
 }
@@ -118,7 +121,7 @@ func (pt *PromptTemplate) Name() string {
 func (pt *PromptTemplate) Clone() (*PromptTemplate, error) {
 	cloned, err := pt.template.Clone()
 	if err != nil {
-		return nil, NewValidationError("template_clone", "failed to clone template: "+err.Error())
+		return nil, errors.NewValidationError("template_clone", "failed to clone template: "+err.Error())
 	}
 
 	return &PromptTemplate{

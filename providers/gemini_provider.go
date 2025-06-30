@@ -1,4 +1,4 @@
-package gothought
+package providers
 
 import (
 	"bytes"
@@ -9,40 +9,16 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gobenpark/gothought/tool"
+	"github.com/gobenpark/gothought/messages"
+	"github.com/gobenpark/gothought/providers/models"
+	"github.com/gobenpark/gothought/tools"
 )
-
-type GeminiResponse struct {
-	Candidates []struct {
-		Content struct {
-			Parts []struct {
-				Text string `json:"text"`
-			} `json:"parts"`
-			Role string `json:"role"`
-		} `json:"content"`
-		FinishReason string `json:"finishReason"`
-		Index        int    `json:"index"`
-	} `json:"candidates"`
-	UsageMetadata struct {
-		PromptTokenCount     int `json:"promptTokenCount"`
-		CandidatesTokenCount int `json:"candidatesTokenCount"`
-		TotalTokenCount      int `json:"totalTokenCount"`
-		PromptTokensDetails  []struct {
-			Modality   string `json:"modality"`
-			TokenCount int    `json:"tokenCount"`
-		} `json:"promptTokensDetails"`
-	} `json:"usageMetadata"`
-	ModelVersion string `json:"modelVersion"`
-	ResponseId   string `json:"responseId"`
-}
 
 type GeminiProvider struct {
 	apiKey      string
 	model       string // 모델 필드 추가
 	temperature float32
 }
-
-var _ Provider = (*GeminiProvider)(nil)
 
 // NewGeminiProvider 생성자 수정
 func NewGeminiProvider(model string, options ...ProviderOption) *GeminiProvider {
@@ -59,10 +35,10 @@ func NewGeminiProvider(model string, options ...ProviderOption) *GeminiProvider 
 	return provider
 }
 
-func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Tool, messages []Message) (*Message, string, error) {
+func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tools.Tool, msgs []messages.Message) (*messages.Message, string, error) {
 
 	content := ""
-	for _, msg := range messages {
+	for _, msg := range msgs {
 		content += msg.Message + "\n"
 	}
 
@@ -111,7 +87,7 @@ func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Too
 		return nil, "", err
 	}
 
-	var generativeContent GeminiResponse
+	var generativeContent models.GeminiResponse
 	if err := json.NewDecoder(buf).Decode(&generativeContent); err != nil {
 		return nil, "", fmt.Errorf("failed to unmarshal response: %v", err)
 	}
@@ -120,7 +96,7 @@ func (g *GeminiProvider) Generate(ctx context.Context, tools map[string]tool.Too
 		return nil, "", fmt.Errorf("empty response from Gemini API")
 	}
 
-	return &Message{
+	return &messages.Message{
 		Role:    "assistant",
 		Message: generativeContent.Candidates[0].Content.Parts[0].Text,
 	}, "stop", nil

@@ -1,8 +1,9 @@
-package gothought
+package providers
 
 import (
 	"context"
-	"errors"
+	errs "errors"
+	"github.com/gobenpark/gothought/errors"
 	"math"
 	"time"
 )
@@ -12,7 +13,7 @@ type RetryConfig struct {
 	InitialDelay    time.Duration
 	MaxDelay        time.Duration
 	BackoffFactor   float64
-	RetryableErrors []ErrorType
+	RetryableErrors []errors.ErrorType
 }
 
 func DefaultRetryConfig() RetryConfig {
@@ -21,17 +22,17 @@ func DefaultRetryConfig() RetryConfig {
 		InitialDelay:  time.Second,
 		MaxDelay:      30 * time.Second,
 		BackoffFactor: 2.0,
-		RetryableErrors: []ErrorType{
-			ErrorTypeNetwork,
-			ErrorTypeTimeout,
-			ErrorTypeRateLimit,
+		RetryableErrors: []errors.ErrorType{
+			errors.ErrorTypeNetwork,
+			errors.ErrorTypeTimeout,
+			errors.ErrorTypeRateLimit,
 		},
 	}
 }
 
-func IsRetryableError(err error, retryableTypes []ErrorType) bool {
-	var ge *GothoughtError
-	if !errors.As(err, &ge) {
+func IsRetryableError(err error, retryableTypes []errors.ErrorType) bool {
+	var ge *errors.GothoughtError
+	if !errs.As(err, &ge) {
 		return false
 	}
 
@@ -82,9 +83,9 @@ func WithRetry[T any](ctx context.Context, config RetryConfig, operation RetryOp
 
 		delay := calculateBackoffDelay(attempt, config)
 
-		if IsRateLimitError(err) {
-			var ge *GothoughtError
-			if errors.As(err, &ge) {
+		if errors.IsRateLimitError(err) {
+			var ge *errors.GothoughtError
+			if errs.As(err, &ge) {
 				if retryAfter, ok := ge.Context["retry_after"].(int); ok && retryAfter > 0 {
 					delay = time.Duration(retryAfter) * time.Second
 				}
@@ -93,12 +94,12 @@ func WithRetry[T any](ctx context.Context, config RetryConfig, operation RetryOp
 
 		select {
 		case <-ctx.Done():
-			return result, NewTimeoutError("retry cancelled due to context timeout", ctx.Err())
+			return result, errors.NewTimeoutError("retry cancelled due to context timeout", ctx.Err())
 		case <-time.After(delay):
 		}
 	}
 
-	return result, NewProviderError("operation failed after retries", lastErr).WithContext("attempts", config.MaxAttempts)
+	return result, errors.NewProviderError("operation failed after retries", lastErr).WithContext("attempts", config.MaxAttempts)
 }
 
 type TimeoutConfig struct {
