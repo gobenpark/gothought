@@ -162,7 +162,7 @@ provider := gothought.NewClaudeProvider("claude-3-5-sonnet-20241022", os.Getenv(
 
 ### Google Gemini
 ```go
-provider := gothought.NewGeminiProvider("gemini-1.5-pro", os.Getenv("GEMINI_API_KEY"))
+provider := gothought.NewGeminiProvider("gemini-2.5-pro", os.Getenv("GEMINI_API_KEY"))
 ```
 
 ### Ollama (Local LLMs)
