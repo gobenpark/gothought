@@ -78,7 +78,7 @@ func (c *ClaudeProvider) convertMessages(messages []messages.Message) ([]models.
 
 func (c *ClaudeProvider) buildClaudeMessage(msg messages.Message) models.ClaudeMessage {
 	claudeMsg := models.ClaudeMessage{
-		Role: msg.Role,
+		Role: msg.Role.String(),
 	}
 
 	switch {

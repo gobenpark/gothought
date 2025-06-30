@@ -70,7 +70,7 @@ func (o *OllamaProvider) convertMessagesToOllama(msgs []messages.Message) []mode
 		}
 
 		return models.OllamaMessage{
-			Role:    role,
+			Role:    role.String(),
 			Content: msg.Message,
 		}
 	})

@@ -3,9 +3,10 @@ package providers
 import (
 	"context"
 	errs "errors"
-	"github.com/gobenpark/gothought/errors"
 	"math"
 	"time"
+
+	"github.com/gobenpark/gothought/errors"
 )
 
 type RetryConfig struct {

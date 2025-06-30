@@ -5,8 +5,21 @@ const (
 	FinishReasonToolCalls = "tool_calls"
 )
 
+type Role string
+
+const (
+	RoleAssistant Role = "assistant"
+	RoleSystem    Role = "system"
+	RoleUser      Role = "user"
+	RoleTool      Role = "tool"
+)
+
+func (r Role) String() string {
+	return string(r)
+}
+
 type Message struct {
-	Role       string `json:"role"`
+	Role       Role   `json:"role"`
 	ToolCallID string `json:"tool_call_id"`
 	Message    string
 	ToolCalls  []ToolCalls `json:"tool_calls"`

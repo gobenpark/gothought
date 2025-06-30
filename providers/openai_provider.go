@@ -59,7 +59,7 @@ func NewOpenAIProvider(model string, options ...ProviderOption) *OpenAIProvider 
 func (o *OpenAIProvider) convertMessages(msgs []messages.Message) []models.OpenAIMessage {
 	return lo.Map(msgs, func(item messages.Message, index int) models.OpenAIMessage {
 		msg := models.OpenAIMessage{
-			Role:       item.Role,
+			Role:       item.Role.String(),
 			Content:    item.Message,
 			ToolCallID: item.ToolCallID,
 		}

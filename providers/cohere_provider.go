@@ -98,7 +98,7 @@ func (c *CohereProvider) convertMessagesToCohere(messages []messages.Message) (s
 		}
 
 		chatHistory = append(chatHistory, models.CohereChatMessage{
-			Role:    role,
+			Role:    role.String(),
 			Message: msg.Message,
 		})
 	}

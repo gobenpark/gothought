@@ -110,7 +110,7 @@ func ValidateMessages(msgs []messages.Message) error {
 
 	for i, msg := range msgs {
 		validatedMsg := ValidatedMessage{
-			Role:       msg.Role,
+			Role:       msg.Role.String(),
 			Message:    msg.Message,
 			ToolCallID: msg.ToolCallID,
 			ToolCalls:  msg.ToolCalls,

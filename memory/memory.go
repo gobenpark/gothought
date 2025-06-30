@@ -1,10 +1,7 @@
 package memory
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/gobenpark/gothought/messages"
 )
@@ -118,80 +115,6 @@ func (m *MemoryStorage) Exists(sessionID string) bool {
 }
 
 // FileStorage implements file-based storage
-type FileStorage struct {
-	baseDir string
-}
-
-// NewFileStorage creates a new file-based storage backend
-func NewFileStorage(baseDir string) *FileStorage {
-	return &FileStorage{
-		baseDir: baseDir,
-	}
-}
-
-func (f *FileStorage) Save(sessionID string, messages []messages.Message) error {
-	// Ensure base directory exists
-	if err := os.MkdirAll(f.baseDir, 0755); err != nil {
-		return fmt.Errorf("failed to create storage directory: %w", err)
-	}
-
-	// Serialize messages to JSON
-	data, err := json.MarshalIndent(messages, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal messages: %w", err)
-	}
-
-	// Write to file
-	filename := filepath.Join(f.baseDir, sessionID+".json")
-	if err := os.WriteFile(filename, data, 0644); err != nil {
-		return fmt.Errorf("failed to write session file: %w", err)
-	}
-
-	return nil
-}
-
-func (f *FileStorage) Load(sessionID string) ([]messages.Message, error) {
-	filename := filepath.Join(f.baseDir, sessionID+".json")
-
-	// Check if file exists
-	if !f.Exists(sessionID) {
-		return nil, fmt.Errorf("session %s not found", sessionID)
-	}
-
-	// Read file
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read session file: %w", err)
-	}
-
-	// Deserialize messages
-	var messages []messages.Message
-	if err := json.Unmarshal(data, &messages); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal messages: %w", err)
-	}
-
-	return messages, nil
-}
-
-func (f *FileStorage) Delete(sessionID string) error {
-	filename := filepath.Join(f.baseDir, sessionID+".json")
-
-	if !f.Exists(sessionID) {
-		return nil // Already deleted or doesn't exist
-	}
-
-	if err := os.Remove(filename); err != nil {
-		return fmt.Errorf("failed to delete session file: %w", err)
-	}
-
-	return nil
-}
-
-func (f *FileStorage) Exists(sessionID string) bool {
-	filename := filepath.Join(f.baseDir, sessionID+".json")
-	_, err := os.Stat(filename)
-	return err == nil
-}
 
 // DefaultMemoryManager implements MemoryManager
 type DefaultMemoryManager struct {
@@ -286,65 +209,6 @@ func (cm *DefaultMemoryManager) Clear() {
 	cm.messages = make([]messages.Message, 0)
 }
 
-// CompressContext implements MemoryManager.CompressContext
-//func (cm *DefaultMemoryManager) CompressContext(ctx context.Context, provider Provider, maxTokens int) error {
-//	if len(cm.messages) <= cm.config.PreserveRecentMessages+1 {
-//		return nil // Not enough messages to compress
-//	}
-//
-//	// Find messages to compress (exclude system and recent messages)
-//	var toCompress []messages.Message
-//	var toKeep []messages.Message
-//
-//	recentStart := len(cm.messages) - cm.config.PreserveRecentMessages
-//
-//	for i, msg := range cm.messages {
-//		if msg.Role == "system" && cm.config.PreserveSystemMessages {
-//			toKeep = append(toKeep, msg)
-//		} else if i >= recentStart {
-//			toKeep = append(toKeep, msg)
-//		} else {
-//			toCompress = append(toCompress, msg)
-//		}
-//	}
-//
-//	if len(toCompress) == 0 {
-//		return nil
-//	}
-//
-//	// Create compression summary
-//	summary, err := cm.createCompressionSummary(ctx, provider, toCompress)
-//	if err != nil {
-//		return fmt.Errorf("failed to compress context: %w", err)
-//	}
-//
-//	// Replace compressed messages with summary
-//	var newMessages []messages.Message
-//
-//	// Add system messages first
-//	for _, msg := range toKeep {
-//		if msg.Role == "system" {
-//			newMessages = append(newMessages, msg)
-//		}
-//	}
-//
-//	// Add compression summary
-//	newMessages = append(newMessages, messages.Message{
-//		Role:    "system",
-//		Message: fmt.Sprintf("Previous conversation summary: %s", summary),
-//	})
-//
-//	// Add recent messages
-//	for _, msg := range toKeep {
-//		if msg.Role != "system" {
-//			newMessages = append(newMessages, msg)
-//		}
-//	}
-//
-//	cm.messages = newMessages
-//	return nil
-//}
-
 // GetTokenCount implements MemoryManager.GetTokenCount
 func (cm *DefaultMemoryManager) GetTokenCount(modelName string) (int, error) {
 	// Simple character-based estimation for now
@@ -416,38 +280,6 @@ func (cm *DefaultMemoryManager) getNonSystemMessages() []messages.Message {
 	}
 	return result
 }
-
-//func (cm *DefaultMemoryManager) createCompressionSummary(ctx context.Context, provider Provider, msgs []messages.Message) (string, error) {
-//	if len(msgs) == 0 {
-//		return "", nil
-//	}
-//
-//	// Create a temporary conversation for summarization
-//	var conversationText string
-//	for _, msg := range msgs {
-//		conversationText += fmt.Sprintf("%s: %s\n", msg.Role, msg.Message)
-//	}
-//
-//	// Create summarization prompt
-//	summaryMessages := []messages.Message{
-//		{
-//			Role:    "system",
-//			Message: "Summarize the following conversation concisely, preserving key information and context:",
-//		},
-//		{
-//			Role:    "human",
-//			Message: conversationText,
-//		},
-//	}
-//
-//	// Generate summary
-//	response, _, err := provider.Generate(ctx, nil, summaryMessages)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	return response.Message, nil
-//}
 
 // UpdateMaxMessages updates the maximum message limit for DefaultMemoryManager
 func (cm *DefaultMemoryManager) UpdateMaxMessages(maxMessages int) {
