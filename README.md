@@ -105,10 +105,9 @@ func main() {
 
 ```go
 // Initialize provider
-provider := gothought.NewOpenAIProvider(
-    "gpt-4o", 
-    os.Getenv("OPENAI_API_KEY"),
-    0.7,
+provider := providers.NewOpenAIProvider("gpt-4o", 
+    providers.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+    providers.WithTemperature(0.7),
 )
 
 // Create language model
@@ -129,10 +128,9 @@ response, err := model.
 
 ```go
 // Initialize provider
-provider := gothought.NewOpenAIProvider(
-    "gpt-4o", 
-    os.Getenv("OPENAI_API_KEY"),
-    0.7,
+provider := providers.NewOpenAIProvider("gpt-4o", 
+    providers.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+    providers.WithTemperature(0.7),
 )
 
 // Create language model
@@ -154,31 +152,45 @@ gothought supports multiple LLM providers through a unified interface:
 
 ### OpenAI
 ```go
-provider := gothought.NewOpenAIProvider("gpt-4o", os.Getenv("OPENAI_API_KEY"), 0.7)
+provider := providers.NewOpenAIProvider("gpt-4o", 
+    providers.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+    providers.WithTemperature(0.7),
+)
 ```
 
 ### Claude (Anthropic)
 ```go
-provider := gothought.NewClaudeProvider("claude-3-5-sonnet-20241022", os.Getenv("ANTHROPIC_API_KEY"))
+provider := providers.NewClaudeProvider("claude-3-5-sonnet-20241022", 
+    providers.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
+)
 ```
 
 ### Google Gemini
 ```go
-provider := gothought.NewGeminiProvider("gemini-2.5-pro", os.Getenv("GEMINI_API_KEY"))
+provider := providers.NewGeminiProvider("gemini-2.5-pro", 
+    providers.WithAPIKey(os.Getenv("GEMINI_API_KEY")),
+)
 ```
 
 ### Ollama (Local LLMs)
 ```go
 // Default localhost:11434
-provider := gothought.NewOllamaProvider("llama3.1", 0.7)
+provider := providers.NewOllamaProvider("llama3.1", 
+    providers.WithTemperature(0.7),
+)
 
 // Custom Ollama server
-provider := gothought.NewOllamaProvider("mistral", 0.7, "http://my-ollama-server:11434")
+provider := providers.NewOllamaProvider("mistral", 
+    providers.WithTemperature(0.7),
+    providers.WithBaseURL("http://my-ollama-server:11434"),
+)
 ```
 
 ### Cohere
 ```go
-provider := gothought.NewCohereProvider("command", os.Getenv("COHERE_API_KEY"))
+provider := providers.NewCohereProvider("command", 
+    providers.WithAPIKey(os.Getenv("COHERE_API_KEY")),
+)
 ```
 
 All providers support the same fluent API and streaming capabilities!
@@ -217,8 +229,10 @@ response, err := model.
 
 ## Supported Tools
 
-- Brave Search - Web search capabilities
-- Custom tools - Easily implement your own tools by implementing the Tool interface
+- **Brave Search** - Web search capabilities
+- **Wikipedia** - Wikipedia article search and content retrieval
+- **Commander** - Local file system operations
+- **Custom Tools** - Easily implement your own tools by implementing the Tool interface
 
 ## Creating Custom Tools
 
