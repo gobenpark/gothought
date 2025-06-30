@@ -3,6 +3,7 @@
 </p>
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/gobenpark/gothought.svg)](https://pkg.go.dev/github.com/gobenpark/gothought)
+[![License: MIT](https://img.shields.io/badge/license-Apache%20License%202.0-blue)](LICENSE)
 # gothought
 
 A lightweight, intuitive library for building LLM-powered applications and agents in Go.
