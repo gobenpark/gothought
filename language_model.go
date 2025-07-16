@@ -6,6 +6,7 @@ import (
 	"github.com/gobenpark/gothought/memory"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/tools"
+	"go.uber.org/zap"
 )
 
 type LanguageModel struct {
@@ -15,6 +16,7 @@ type LanguageModel struct {
 	memoryManager  memory.MemoryManager
 	messageBuilder MessageBuilder
 	queryExecutor  QueryExecutor
+	logger         *zap.Logger // logger for debug and operational logging
 }
 
 func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
@@ -33,9 +35,14 @@ func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
 		cli.memoryManager = memory.NewMemoryManager((memory.DefaultMemoryConfig()))
 	}
 
+	// Initialize with noop logger if none provided
+	if cli.logger == nil {
+		cli.logger = zap.NewNop()
+	}
+
 	// Initialize components
-	cli.messageBuilder = NewMessageBuilder(cli.memoryManager)
-	cli.queryExecutor = NewQueryExecutor(cli.provider, cli.tools, cli.maxIterations, cli.memoryManager)
+	cli.messageBuilder = NewMessageBuilder(cli.memoryManager, cli.logger)
+	cli.queryExecutor = NewQueryExecutor(cli.provider, cli.tools, cli.maxIterations, cli.memoryManager, cli.logger)
 
 	return cli
 }
@@ -53,7 +60,7 @@ func (l *LanguageModel) SetPrompts(prompts []messages.Message) {
 func (l *LanguageModel) AddTool(t tools.Tool) *LanguageModel {
 	l.tools[t.Name()] = t
 	// Update query executor with new tools
-	l.queryExecutor = NewQueryExecutor(l.provider, l.tools, l.maxIterations, l.memoryManager)
+	l.queryExecutor = NewQueryExecutor(l.provider, l.tools, l.maxIterations, l.memoryManager, l.logger)
 	return l
 }
 
@@ -61,6 +68,7 @@ func (l *LanguageModel) AddTool(t tools.Tool) *LanguageModel {
 // It appends a new message with the "system" role to the client's message list.
 // System messages are typically used to set the behavior of the language model.
 func (l *LanguageModel) SystemPrompt(prompt string) *LanguageModel {
+	l.logger.Debug("Adding system prompt", zap.String("prompt", prompt))
 	l.messageBuilder.SystemPrompt(prompt)
 	return l
 }
@@ -87,6 +95,7 @@ func (l *LanguageModel) SystemPromptf(templateStr string, data interface{}) *Lan
 // AIPrompt adds an AI-generated message to the conversation.
 // It appends a new message with the "assistant" role to the client's message list.
 func (l *LanguageModel) AIPrompt(prompt string) *LanguageModel {
+	l.logger.Debug("Adding AI prompt", zap.String("prompt", prompt))
 	l.messageBuilder.AIPrompt(prompt)
 	return l
 }
@@ -101,6 +110,7 @@ func (l *LanguageModel) Prompt(message messages.Message) *LanguageModel {
 // HumanPrompt adds a user message to the conversation.
 // It appends a new message with the "user" role to the client's message list.
 func (l *LanguageModel) HumanPrompt(prompt string) *LanguageModel {
+	l.logger.Debug("Adding human prompt", zap.String("prompt", prompt))
 	l.messageBuilder.HumanPrompt(prompt)
 	return l
 }
@@ -135,7 +145,14 @@ func (l *LanguageModel) HumanPromptf(templateStr string, data interface{}) *Lang
 // It manages tool calls through multiple iterations if necessary,
 // up to the configured maximum number of iterations.
 func (l *LanguageModel) Q(ctx context.Context) (*messages.Message, error) {
-	return l.queryExecutor.Execute(ctx)
+	l.logger.Debug("Starting query execution")
+	response, err := l.queryExecutor.Execute(ctx)
+	if err != nil {
+		l.logger.Error("Query execution failed", zap.Error(err))
+	} else {
+		l.logger.Debug("Query execution completed successfully")
+	}
+	return response, err
 }
 
 // QStream executes a streaming query to the language model.

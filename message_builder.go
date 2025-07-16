@@ -3,6 +3,7 @@ package gothought
 import (
 	"github.com/gobenpark/gothought/memory"
 	"github.com/gobenpark/gothought/messages"
+	"go.uber.org/zap"
 )
 
 // MessageBuilder handles message construction and adds them to memory manager
@@ -21,12 +22,14 @@ type MessageBuilder interface {
 // messageBuilder implements MessageBuilder interface
 type messageBuilder struct {
 	memoryManager memory.MemoryManager
+	logger        *zap.Logger
 }
 
 // NewMessageBuilder creates a new MessageBuilder instance
-func NewMessageBuilder(memoryManager memory.MemoryManager) MessageBuilder {
+func NewMessageBuilder(memoryManager memory.MemoryManager, logger *zap.Logger) MessageBuilder {
 	return &messageBuilder{
 		memoryManager: memoryManager,
+		logger:        logger,
 	}
 }
 
@@ -36,6 +39,7 @@ func (mb *messageBuilder) SystemPrompt(prompt string) MessageBuilder {
 		Role:    "system",
 		Message: prompt,
 	}
+	mb.logger.Debug("MessageBuilder adding system message", zap.String("message", prompt))
 	mb.memoryManager.AddMessage(msg)
 	return mb
 }
@@ -46,6 +50,7 @@ func (mb *messageBuilder) AIPrompt(prompt string) MessageBuilder {
 		Role:    "assistant",
 		Message: prompt,
 	}
+	mb.logger.Debug("MessageBuilder adding assistant message", zap.String("message", prompt))
 	mb.memoryManager.AddMessage(msg)
 	return mb
 }
@@ -56,6 +61,7 @@ func (mb *messageBuilder) HumanPrompt(prompt string) MessageBuilder {
 		Role:    "user",
 		Message: prompt,
 	}
+	mb.logger.Debug("MessageBuilder adding user message", zap.String("message", prompt))
 	mb.memoryManager.AddMessage(msg)
 	return mb
 }

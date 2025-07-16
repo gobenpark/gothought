@@ -2,12 +2,14 @@ package gothought
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gobenpark/gothought/errors"
 	"github.com/gobenpark/gothought/memory"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/providers"
 	"github.com/gobenpark/gothought/tools"
+	"go.uber.org/zap"
 )
 
 // QueryExecutor handles query execution and tool calling
@@ -23,15 +25,17 @@ type queryExecutor struct {
 	tools         map[string]tools.Tool
 	maxIterations int
 	memoryManager memory.MemoryManager
+	logger        *zap.Logger
 }
 
 // NewQueryExecutor creates a new QueryExecutor instance
-func NewQueryExecutor(provider Provider, tools map[string]tools.Tool, maxIterations int, memoryManager memory.MemoryManager) QueryExecutor {
+func NewQueryExecutor(provider Provider, tools map[string]tools.Tool, maxIterations int, memoryManager memory.MemoryManager, logger *zap.Logger) QueryExecutor {
 	return &queryExecutor{
 		provider:      provider,
 		tools:         tools,
 		maxIterations: maxIterations,
 		memoryManager: memoryManager,
+		logger:        logger,
 	}
 }
 
@@ -47,15 +51,21 @@ func (qe *queryExecutor) Execute(ctx context.Context) (*messages.Message, error)
 	}
 
 	for i := 0; i < qe.maxIterations; i++ {
+		qe.logger.Debug("Starting provider generation", zap.Int("iteration", i+1), zap.Int("max_iterations", qe.maxIterations))
 		response, finishReason, err := qe.provider.Generate(ctx, qe.tools, msgs)
 		if err != nil {
+			qe.logger.Error("Provider generation failed", zap.Error(err), zap.Int("iteration", i+1))
 			return nil, errors.NewProviderError("failed to generate response", err).WithContext("iteration", i)
 		}
 
+		qe.logger.Debug("Provider response received", zap.String("finish_reason", finishReason), zap.Int("iteration", i+1))
+
 		switch finishReason {
 		case messages.FinishReasonStop:
+			qe.logger.Debug("Query completed with stop reason")
 			return response, nil
 		case messages.FinishReasonToolCalls:
+			qe.logger.Debug("Processing tool calls", zap.Int("tool_calls_count", len(response.ToolCalls)))
 			msgs = append(msgs, *response)
 			qe.memoryManager.AddMessage(*response)
 
@@ -133,15 +143,31 @@ func (qe *queryExecutor) ExecuteWithStructuredOutput(ctx context.Context, obj in
 // handleToolCalls processes tool calls from the language model response
 func (qe *queryExecutor) handleToolCalls(ctx context.Context, response *messages.Message, msgs *[]messages.Message) error {
 	for _, tl := range response.ToolCalls {
+		qe.logger.Debug("Executing tool call",
+			zap.String("tool_name", tl.Function.Name),
+			zap.String("tool_id", tl.ID),
+			zap.String("arguments", tl.Function.Arguments),
+		)
+
 		tool, exists := qe.tools[tl.Function.Name]
 		if !exists {
+			qe.logger.Error("Tool not found", zap.String("tool_name", tl.Function.Name))
 			return errors.NewToolError(tl.Function.Name, "tool not found", nil)
 		}
 
 		tres, err := tool.Call(ctx, tl.Function.Arguments)
 		if err != nil {
+			qe.logger.Error("Tool execution failed",
+				zap.String("tool_name", tl.Function.Name),
+				zap.Error(err),
+			)
 			return errors.NewToolError(tl.Function.Name, "tool execution failed", err)
 		}
+
+		qe.logger.Debug("Tool execution completed",
+			zap.String("tool_name", tl.Function.Name),
+			zap.String("result_length", fmt.Sprintf("%d chars", len(tres))),
+		)
 
 		toolMsg := messages.Message{
 			Role:       "tool",
