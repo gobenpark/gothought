@@ -21,21 +21,23 @@ type QueryExecutor interface {
 
 // queryExecutor implements QueryExecutor interface
 type queryExecutor struct {
-	provider      Provider
-	tools         map[string]tools.Tool
-	maxIterations int
-	memoryManager memory.MemoryManager
-	logger        *zap.Logger
+	provider       Provider
+	tools          map[string]tools.Tool
+	maxIterations  int
+	memoryManager  memory.MemoryManager
+	messageBuilder MessageBuilder
+	logger         *zap.Logger
 }
 
 // NewQueryExecutor creates a new QueryExecutor instance
-func NewQueryExecutor(provider Provider, tools map[string]tools.Tool, maxIterations int, memoryManager memory.MemoryManager, logger *zap.Logger) QueryExecutor {
+func NewQueryExecutor(provider Provider, tools map[string]tools.Tool, maxIterations int, memoryManager memory.MemoryManager, messageBuilder MessageBuilder, logger *zap.Logger) QueryExecutor {
 	return &queryExecutor{
-		provider:      provider,
-		tools:         tools,
-		maxIterations: maxIterations,
-		memoryManager: memoryManager,
-		logger:        logger,
+		provider:       provider,
+		tools:          tools,
+		maxIterations:  maxIterations,
+		memoryManager:  memoryManager,
+		messageBuilder: messageBuilder,
+		logger:         logger,
 	}
 }
 
@@ -87,19 +89,78 @@ func (qe *queryExecutor) ExecuteStreaming(ctx context.Context, callback func(mes
 		return errors.NewValidationError("callback", "callback function cannot be nil")
 	}
 
-	messages := qe.memoryManager.GetMessages()
-	if err := providers.ValidateMessages(messages); err != nil {
+	msgs := qe.memoryManager.GetMessages()
+	if err := providers.ValidateMessages(msgs); err != nil {
 		return err
 	}
 
-	if p, ok := any(qe.provider).(StreamingCapable); ok {
-		if err := p.GenerateStreaming(ctx, qe.tools, messages, callback); err != nil {
-			return errors.NewProviderError("streaming generation failed", err)
-		}
-		return nil
+	// Check if provider supports streaming
+	streamingProvider, ok := any(qe.provider).(StreamingCapable)
+	if !ok {
+		qe.logger.Error("Provider does not support streaming")
+		return errors.NewProviderError("streaming not supported for this provider", nil)
 	}
 
-	return errors.NewProviderError("streaming not supported for this provider", nil)
+	// If tools are available, we need to handle potential tool calls
+	if len(qe.tools) > 0 {
+		qe.logger.Debug("Tools detected, using hybrid approach for streaming")
+		return qe.executeStreamingWithTools(ctx, streamingProvider, msgs, callback)
+	}
+
+	// No tools, direct streaming
+	qe.logger.Debug("No tools, using direct streaming")
+	if err := streamingProvider.GenerateStreaming(ctx, qe.tools, msgs, callback); err != nil {
+		qe.logger.Error("Streaming generation failed", zap.Error(err))
+		return errors.NewProviderError("streaming generation failed", err)
+	}
+	qe.logger.Debug("Streaming execution completed successfully")
+	return nil
+}
+
+// executeStreamingWithTools handles streaming when tools are available
+func (qe *queryExecutor) executeStreamingWithTools(ctx context.Context, streamingProvider StreamingCapable, msgs []messages.Message, callback func(messages.Message) error) error {
+	// Handle tool calls in a loop similar to Execute
+	for i := 0; i < qe.maxIterations; i++ {
+		qe.logger.Debug("Starting iteration", zap.Int("iteration", i+1))
+
+		// First, do a non-streaming call to check if it's a tool call
+		response, finishReason, err := qe.provider.Generate(ctx, qe.tools, msgs)
+		if err != nil {
+			qe.logger.Error("Provider generation failed", zap.Error(err), zap.Int("iteration", i+1))
+			return errors.NewProviderError("failed to generate response", err).WithContext("iteration", i)
+		}
+
+		switch finishReason {
+		case messages.FinishReasonStop:
+			// This is the final response - stream it
+			qe.logger.Debug("Final response detected, streaming to user")
+
+			// Store the response first
+			qe.memoryManager.AddMessage(*response)
+
+			// Re-run with streaming for the final response only
+			if err := streamingProvider.GenerateStreaming(ctx, qe.tools, msgs, callback); err != nil {
+				qe.logger.Error("Streaming generation failed", zap.Error(err))
+				return errors.NewProviderError("streaming generation failed", err)
+			}
+
+			qe.logger.Debug("Streaming execution completed successfully")
+			return nil
+
+		case messages.FinishReasonToolCalls:
+			// Process tool calls (don't stream these)
+			qe.logger.Debug("Processing tool calls", zap.Int("tool_calls_count", len(response.ToolCalls)))
+			msgs = append(msgs, *response)
+			qe.memoryManager.AddMessage(*response)
+
+			if err := qe.handleToolCalls(ctx, response, &msgs); err != nil {
+				return err
+			}
+			// Continue to next iteration
+		}
+	}
+
+	return errors.NewMaxIterationsError(qe.maxIterations)
 }
 
 // ExecuteWithStructuredOutput executes a query and parses the result into the provided object

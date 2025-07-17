@@ -3,6 +3,7 @@ package gothought
 import (
 	"context"
 
+	"github.com/gobenpark/gothought/errors"
 	"github.com/gobenpark/gothought/memory"
 	"github.com/gobenpark/gothought/messages"
 	"github.com/gobenpark/gothought/tools"
@@ -30,9 +31,9 @@ func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
 		option(cli)
 	}
 
-	// Initialize with default context manager if none provided
+	// Initialize with default memory manager if none provided
 	if cli.memoryManager == nil {
-		cli.memoryManager = memory.NewMemoryManager((memory.DefaultMemoryConfig()))
+		cli.memoryManager = memory.NewMemoryManager(memory.DefaultMemoryConfig())
 	}
 
 	// Initialize with noop logger if none provided
@@ -42,7 +43,7 @@ func NewLanguageModel(p Provider, options ...Option) *LanguageModel {
 
 	// Initialize components
 	cli.messageBuilder = NewMessageBuilder(cli.memoryManager, cli.logger)
-	cli.queryExecutor = NewQueryExecutor(cli.provider, cli.tools, cli.maxIterations, cli.memoryManager, cli.logger)
+	cli.queryExecutor = NewQueryExecutor(cli.provider, cli.tools, cli.maxIterations, cli.memoryManager, cli.messageBuilder, cli.logger)
 
 	return cli
 }
@@ -60,7 +61,7 @@ func (l *LanguageModel) SetPrompts(prompts []messages.Message) {
 func (l *LanguageModel) AddTool(t tools.Tool) *LanguageModel {
 	l.tools[t.Name()] = t
 	// Update query executor with new tools
-	l.queryExecutor = NewQueryExecutor(l.provider, l.tools, l.maxIterations, l.memoryManager, l.logger)
+	l.queryExecutor = NewQueryExecutor(l.provider, l.tools, l.maxIterations, l.memoryManager, l.messageBuilder, l.logger)
 	return l
 }
 
@@ -159,7 +160,14 @@ func (l *LanguageModel) Q(ctx context.Context) (*messages.Message, error) {
 // It checks if the provider supports streaming capabilities and
 // processes the response through the provided callback function.
 func (l *LanguageModel) QStream(ctx context.Context, callback func(messages.Message) error) error {
-	return l.queryExecutor.ExecuteStreaming(ctx, callback)
+	err := l.queryExecutor.ExecuteStreaming(ctx, callback)
+	if err != nil {
+		l.logger.Error("Query execution failed", zap.Error(err))
+	} else {
+		l.logger.Debug("Query execution completed successfully")
+	}
+
+	return err
 }
 
 // QWith takes a context and an interface object that defines the structure
@@ -194,17 +202,25 @@ func (l *LanguageModel) GetMemoryManager() memory.MemoryManager {
 
 // SaveConversation saves the current conversation to persistent storage with the given session ID.
 func (l *LanguageModel) SaveConversation(sessionID string) error {
+	if l.memoryManager == nil {
+		return errors.NewValidationError("memory_manager", "memory manager not configured")
+	}
 	return l.memoryManager.SaveContext(sessionID)
 }
 
 // LoadConversation loads a conversation from persistent storage with the given session ID.
 func (l *LanguageModel) LoadConversation(sessionID string) error {
+	if l.memoryManager == nil {
+		return errors.NewValidationError("memory_manager", "memory manager not configured")
+	}
 	return l.memoryManager.LoadContext(sessionID)
 }
 
 // ClearConversation clears all messages from the context manager.
 func (l *LanguageModel) ClearConversation() *LanguageModel {
-	l.memoryManager.Clear()
+	if l.memoryManager != nil {
+		l.memoryManager.Clear()
+	}
 	return l
 }
 
@@ -217,11 +233,17 @@ func (l *LanguageModel) ClearConversation() *LanguageModel {
 
 // GetConversationTokenCount estimates the total token count for the current conversation.
 func (l *LanguageModel) GetConversationTokenCount(modelName string) (int, error) {
+	if l.memoryManager == nil {
+		return 0, errors.NewValidationError("memory_manager", "memory manager not configured")
+	}
 	return l.memoryManager.GetTokenCount(modelName)
 }
 
 // GetOptimizedMessages returns messages optimized for the given token constraints.
 // This method filters and potentially compresses messages to fit within the specified limits.
 func (l *LanguageModel) GetOptimizedMessages(maxTokens int, modelName string) ([]messages.Message, error) {
+	if l.memoryManager == nil {
+		return []messages.Message{}, errors.NewValidationError("memory_manager", "memory manager not configured")
+	}
 	return l.memoryManager.GetFilteredMessages(maxTokens, modelName)
 }

@@ -15,7 +15,7 @@ func WithIteration(iter int) Option {
 	}
 }
 
-// WithContextManager sets a custom context manager for the language model
+// WithMemoryManager sets a custom context manager for the language model
 func WithMemoryManager(cm memory.MemoryManager) Option {
 	return func(c *LanguageModel) {
 		c.memoryManager = cm
